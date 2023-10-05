@@ -84,6 +84,11 @@ def uniform_probability_spike_generation(freq, total_time, time_step_size, total
     external_spike_steps = uniform_for_external_spike_intervals <= freq*time_step_size
     return external_spike_steps
 
+
+def constant_probability_random_connectivity_matrix(num_cells, probability):
+    return np.random.uniform(size=(num_cells, num_cells)) <= probability
+
+
 start_program = time.time()
 number_of_cells = 1250
 number_excitatory_cells = round(0.8*number_of_cells)
@@ -94,7 +99,7 @@ C_random_inhibitory_connections = round(gamma_ratio_connections * C_random_excit
 C_random_connections = C_random_excitatory_connections + C_random_inhibitory_connections
 C_ext_connections = C_random_excitatory_connections
 epsilon_connection_probability = 0.1  # C_random_excitatory_connections/number_excitatory_cells
-connectivity_matrix = np.random.uniform(size=(number_of_cells, number_of_cells)) <= epsilon_connection_probability
+connectivity_matrix = constant_probability_random_connectivity_matrix(number_of_cells, epsilon_connection_probability)
 # the receiving (postsynaptic) cell corresponds to the row,
 # and the (presynaptic) cells which give it a connection correspond to columns in that row which have a value
 # of 1. So if it is [[0, 1], [0, 0]] then the first cell (index 0) has a connection
