@@ -5,6 +5,8 @@ import numpy as np
 from math import ceil
 from matplotlib.ticker import PercentFormatter
 import time
+import csv
+from collections import Counter
 
 
 def poisson_distribution_spike_generation(freq, total_time, time_step_size, cells, connections, rng):
@@ -112,11 +114,46 @@ def ba_graph(sigma_random_variable, a_arbitrary_constant, m_0_nodes, rho_probabi
     return total_graph
 
 
-def convolutive_graph_gen(sigma_random_variable, a_arbitrary_constant, m_0_nodes, rho_probability,
-                          l_cardinality_partitions, N_total_nodes, p_probability, phi_U_probability,
-                          phi_D_probability, rng):
-    A_1 = ba_graph(sigma_random_variable, a_arbitrary_constant, m_0_nodes, rho_probability, rng, N_total_nodes)
-    A_2 = ba_graph(sigma_random_variable, a_arbitrary_constant, m_0_nodes, rho_probability, rng, N_total_nodes)
+def spatial_block_ba_graph(num_cells, x_max, x_min, y_max, y_min, z_max, z_min, delta, noise_factor, m, rng,
+                           in_degree_elements, out_degree_elements):
+    connectivity_graph = np.zeros((num_cells, num_cells))
+    S_N = 200
+    S_F = 1
+    x_pos_nodes = rng.uniform(x_min, x_max, num_cells)
+    y_pos_nodes = rng.uniform(y_min, y_max, num_cells)
+    z_pos_nodes = rng.uniform(z_min, z_max, num_cells)
+    pos_nodes = np.vstack((x_pos_nodes, y_pos_nodes, z_pos_nodes))
+    pos_nodes[:, 0] = np.array([(x_max-x_min)/2, (y_max-y_min)/2, (z_max-z_min)/2])
+
+    centrality_nodes = np.zeros(num_cells)
+    for node_index in range(1, num_cells):
+        current_pos = pos_nodes[:, node_index]
+        dist = np.linalg.norm(current_pos[:, None] - pos_nodes[:, :node_index], axis=0)**2
+        random_vector = rng.uniform(size=node_index)
+        cost_function = delta*(dist + S_N * noise_factor * random_vector)/S_F + centrality_nodes[:node_index] + 1
+        number_of_connections = int(rng.choice(in_degree_elements))
+        if number_of_connections >= len(cost_function):
+            number_of_connections = len(cost_function)
+        if number_of_connections != 0:
+            connected_to_nodes = np.argpartition(cost_function, number_of_connections - 1)[:number_of_connections]
+            smallest_centrality = np.min(centrality_nodes[connected_to_nodes])
+            centrality_nodes[node_index] = smallest_centrality + 1
+            connectivity_graph[node_index, connected_to_nodes] = 1
+
+    return connectivity_graph, pos_nodes, centrality_nodes
+
+
+def convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions, N_total_nodes, p_probability,
+                          phi_U_probability, phi_D_probability, rng, sigma_random_variable=3, a_arbitrary_constant=0,
+                          delta=1.5, noise_factor=3, in_degree_elements=None, out_degree_elements=None, spatial=False):
+    if spatial:
+        A_1 = spatial_block_ba_graph(N_total_nodes, 1, 0, 1, 0, 1, 0, delta, noise_factor, m_0_nodes, rng,
+                                     in_degree_elements, out_degree_elements)[0]
+        A_2 = spatial_block_ba_graph(N_total_nodes, 1, 0, 1, 0, 1, 0, delta, noise_factor, m_0_nodes, rng,
+                                     in_degree_elements, out_degree_elements)[0]
+    else:
+        A_1 = ba_graph(sigma_random_variable, a_arbitrary_constant, m_0_nodes, rho_probability, rng, N_total_nodes)
+        A_2 = ba_graph(sigma_random_variable, a_arbitrary_constant, m_0_nodes, rho_probability, rng, N_total_nodes)
     B = np.block([
         [A_1, np.zeros(A_1.shape)],
         [np.zeros(A_1.shape), A_2]
@@ -159,3 +196,35 @@ def get_partition(nodes, l_cardinality, M_partitions, rng):
         partitioned_graph.append(
             shuffled_nodes[partition * l_cardinality:(partition + 1) * l_cardinality])
     return partitioned_graph
+
+
+def get_csv_degree_elements(in_degree_file_name, out_degree_file_name):
+    with open("../degree_data/" + in_degree_file_name) as in_degree_file:
+        csv_reader = csv.reader(in_degree_file, delimiter=';')
+        in_degree_elements = []
+        for row in csv_reader:
+            for value in row:
+                in_degree_elements.append(value)
+    with open("../degree_data/" + out_degree_file_name) as out_degree_file:
+        csv_reader = csv.reader(out_degree_file, delimiter=';')
+        out_degree_elements = []
+        for row in csv_reader:
+            for value in row:
+                out_degree_elements.append(value)
+    return in_degree_elements, out_degree_elements
+
+
+def plot_degree_counts(connectivity_graph):
+    fig_indegrees, ax_indegrees = plt.subplots()
+    indegrees, counts = np.unique(np.sum(connectivity_graph, axis=1), return_counts=True)
+    print(indegrees)
+    ax_indegrees.bar(indegrees, counts, align='center')
+    ax_indegrees.set_xlabel("indegree")
+    ax_indegrees.set_ylabel("count")
+
+    fig_outdegrees, ax_outdegrees = plt.subplots()
+    out_degrees, counts = np.unique(np.sum(connectivity_graph, axis=0), return_counts=True)
+    ax_outdegrees.bar(out_degrees, counts, align='center')
+    ax_outdegrees.set_xlabel("outdegree")
+    ax_outdegrees.set_ylabel("count")
+
