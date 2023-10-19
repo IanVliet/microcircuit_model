@@ -17,11 +17,11 @@ rng = np.random.default_rng(42)
 # a_arbitrary_constant_choice = 2  # unused / has no influence
 m_0_nodes_choice = 100  # equivalent to "m" in the web application?
 rho_probability_choice = 0.3  # not present in web application? (Noise factor?, Delta?)
-l_cardinality_partitions_choice = 3  # Likely L in the web application
-N_total_nodes_choice = 15000  # likely N in the web application
+l_cardinality_partitions_choice = 1500  # Likely L in the web application
+N_total_nodes_choice = 1500  # likely N in the web application
 E_k_choice = 3  # likely EK in the web application
 phi_U_probability_choice = 0.9  # likely phi_U in the web application
-phi_D_probability_choice = 0  # likely phi_D in the web application
+phi_D_probability_choice = 0.0005  # likely phi_D in the web application
 p_probability_choice = (E_k_choice/N_total_nodes_choice - phi_D_probability_choice) /\
                        (phi_U_probability_choice - phi_D_probability_choice)
 
@@ -35,4 +35,29 @@ B = convolutive_graph_gen(m_0_nodes_choice, rho_probability_choice, l_cardinalit
 end_generation = time.time()
 print(str(end_generation-start_generation) + " s")
 plot_degree_counts(B)
+
+in_degree, out_degree = \
+    get_interpolated_degree_distributions(in_degree_elements, out_degree_elements)
+
+in_degrees, in_degree_counts = np.unique(np.sum(B, axis=1), return_counts=True)
+out_degrees, out_degree_counts = np.unique(np.sum(B, axis=0), return_counts=True)
+in_degree_elements_model = np.repeat(in_degrees, in_degree_counts)
+out_degree_elements_model = np.repeat(out_degrees, out_degree_counts)
+
+in_degree_gen_model, out_degree_gen_model = \
+    get_interpolated_degree_distributions(in_degree_elements_model, out_degree_elements_model)
+
+# in_degree_model, out_degree_model = \
+#     convolutive_probabilities(in_degree, out_degree, N_total_nodes_choice, l_cardinality_partitions_choice,
+#                               p_probability_choice, phi_U_probability_choice, phi_D_probability_choice)
+
+fig, ax = plt.subplots()
+ax.plot(in_degree, label="in-degree")
+ax.plot(out_degree, label="out-degree")
+ax.plot(in_degree_gen_model, label="in-degree generative model")
+ax.plot(out_degree_gen_model, label="out-degree generative model")
+# ax.plot(in_degree_model, label="in-degree model")
+# ax.plot(out_degree_model, label="out-degree model")
+ax.legend()
+
 plt.show()

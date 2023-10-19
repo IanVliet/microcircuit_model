@@ -7,6 +7,7 @@ from matplotlib.ticker import PercentFormatter
 import time
 import csv
 from collections import Counter
+from scipy.special import comb
 
 
 def poisson_distribution_spike_generation(freq, total_time, time_step_size, cells, connections, rng):
@@ -81,7 +82,26 @@ def uniform_probability_spike_generation(freq, total_time, time_step_size, total
 
 
 def constant_probability_random_connectivity_matrix(num_cells, probability, rng):
-    return rng.uniform(size=(num_cells, num_cells)) <= probability
+    connectivity_matrix = rng.uniform(size=(num_cells, num_cells)) <= probability
+    np.fill_diagonal(connectivity_matrix, 0)
+    return connectivity_matrix
+
+
+def get_interpolated_degree_distributions(in_degree_elements, out_degree_elements):
+    in_degree_values, in_degree_counts = np.unique(in_degree_elements, return_counts=True)
+    out_degree_values, out_degree_counts = np.unique(out_degree_elements, return_counts=True)
+    in_degree_distribution = in_degree_counts/np.sum(in_degree_counts)
+    out_degree_distribution = out_degree_counts/np.sum(out_degree_counts)
+    max_in_degree = int(np.max(in_degree_values))
+    n_range_in_degree = np.arange(max_in_degree)
+    max_out_degree = int(np.max(in_degree_values))
+    n_range_out_degree = np.arange(max_out_degree)
+    total_in_degree_distribution = np.interp(n_range_in_degree, in_degree_values, in_degree_distribution)
+    total_in_degree_distribution = total_in_degree_distribution/np.sum(total_in_degree_distribution)
+
+    total_out_degree_distribution = np.interp(n_range_out_degree, out_degree_values, out_degree_distribution)
+    total_out_degree_distribution = total_out_degree_distribution/np.sum(total_out_degree_distribution)
+    return total_in_degree_distribution, total_out_degree_distribution
 
 
 # generates BARABÁSI AND ALBERT graph from chapter 14.2 "Networks: an introduction" (2010)
@@ -102,6 +122,8 @@ def ba_graph(sigma_random_variable, a_arbitrary_constant, m_0_nodes, rho_probabi
     node_counter = m_0_nodes
     while node_counter < total_nodes:
         for out_degree_counter in range(sigma_random_variable):
+            if sigma_random_variable > len(list_of_vertices):
+                print("What should happen in this case???")
             r_random_variable = rng.random()
             if r_random_variable < 0.5:
                 target_node = rng.choice(list_of_targets)
@@ -112,6 +134,12 @@ def ba_graph(sigma_random_variable, a_arbitrary_constant, m_0_nodes, rho_probabi
         list_of_vertices.append(node_counter)
         node_counter += 1
     return total_graph
+# in the matlab files of "Graph-theoretical derivation of brain structural connectivity":
+# (https://doi.org/10.1016/j.amc.2020.125150) they call sigma --> gamma, and it is a distribution. They add vertices,
+# and if the number of targets (which is a sample taken from the cumulative gamma distribution) is larger than the
+# already existing vertices, they take a new sample. Furthermore, gamma is acquired from the original indegree data in
+# multiple steps: where one of them consists of interpolating the original data to data which has data for every
+# indegree between 0 and the highest observed indegree in the original data. They also allow
 
 
 def spatial_block_ba_graph(num_cells, x_max, x_min, y_max, y_min, z_max, z_min, delta, noise_factor, m, rng,
@@ -147,9 +175,9 @@ def convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions, 
                           phi_U_probability, phi_D_probability, rng, sigma_random_variable=3, a_arbitrary_constant=0,
                           delta=1.5, noise_factor=3, in_degree_elements=None, out_degree_elements=None, spatial=False):
     if spatial:
-        A_1 = spatial_block_ba_graph(N_total_nodes, 1, 0, 1, 0, 1, 0, delta, noise_factor, m_0_nodes, rng,
+        A_1 = spatial_block_ba_graph(round(N_total_nodes/2), 1, 0, 1, 0, 1, 0, delta, noise_factor, m_0_nodes, rng,
                                      in_degree_elements, out_degree_elements)[0]
-        A_2 = spatial_block_ba_graph(N_total_nodes, 1, 0, 1, 0, 1, 0, delta, noise_factor, m_0_nodes, rng,
+        A_2 = spatial_block_ba_graph(round(N_total_nodes/2), 1, 0, 1, 0, 1, 0, delta, noise_factor, m_0_nodes, rng,
                                      in_degree_elements, out_degree_elements)[0]
     else:
         A_1 = ba_graph(sigma_random_variable, a_arbitrary_constant, m_0_nodes, rho_probability, rng, N_total_nodes)
@@ -188,6 +216,43 @@ def convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions, 
     return B
 
 
+# NEEDS TO BE FIXED STILL!!!
+# def convolutive_probabilities(in_degree_distribution, out_degree_distribution, N_total_nodes,
+#                               l_cardinality_partitions, p_probability, phi_U_probability, phi_D_probability):
+#     M = round(N_total_nodes/l_cardinality_partitions)
+#     print(M)
+#     in_degree_model = []
+#     out_degree_model = []
+#     delta_0_distribution = np.zeros(N_total_nodes)
+#     delta_0_distribution[0] = 1
+#     range_to_N = np.arange(N_total_nodes, dtype=float)
+#     # NEEDS TO BE FIXED STILL
+#     binomial_phi_D_distribution = \
+#         (phi_D_probability ** range_to_N) * ((1-phi_D_probability)**(l_cardinality_partitions-range_to_N)) * \
+#         comb(l_cardinality_partitions, range_to_N)
+#     binomial_phi_U_distribution = \
+#         (phi_U_probability ** range_to_N) * ((1 - phi_U_probability) ** (l_cardinality_partitions - range_to_N)) * \
+#         comb(l_cardinality_partitions, range_to_N)
+#     print(comb(l_cardinality_partitions, range_to_N))
+#     print(binomial_phi_U_distribution)
+#     print(binomial_phi_D_distribution)
+#     for k in range(1, N_total_nodes+1):
+#         left_part = (1-p_probability)*delta_0_distribution[:k] + p_probability*binomial_phi_U_distribution[:k]
+#         right_part = p_probability*delta_0_distribution[:k] + (1-p_probability)*binomial_phi_D_distribution[:k]
+#         first_convolution = np.convolve(left_part, right_part)
+#         power_convolutions = convolve_power(first_convolution, M)
+#         in_degree_model.append(np.convolve(in_degree_distribution[:k], power_convolutions))
+#         out_degree_model.append(np.convolve(out_degree_distribution[:k], power_convolutions))
+#     return in_degree_model, out_degree_model
+
+
+def convolve_power(array, power):
+    result = array
+    for convolution_iteration in range(power-1):
+        result = np.convolve(result, array)
+    return result
+
+
 def get_partition(nodes, l_cardinality, M_partitions, rng):
     rng.shuffle(nodes)
     shuffled_nodes = nodes.copy()
@@ -204,27 +269,27 @@ def get_csv_degree_elements(in_degree_file_name, out_degree_file_name):
         in_degree_elements = []
         for row in csv_reader:
             for value in row:
-                in_degree_elements.append(value)
+                in_degree_elements.append(int(value))
     with open("../degree_data/" + out_degree_file_name) as out_degree_file:
         csv_reader = csv.reader(out_degree_file, delimiter=';')
         out_degree_elements = []
         for row in csv_reader:
             for value in row:
-                out_degree_elements.append(value)
+                out_degree_elements.append(int(value))
     return in_degree_elements, out_degree_elements
 
 
 def plot_degree_counts(connectivity_graph):
     fig_indegrees, ax_indegrees = plt.subplots()
     indegrees, counts = np.unique(np.sum(connectivity_graph, axis=1), return_counts=True)
-    print(indegrees)
+    # print(indegrees)
     ax_indegrees.bar(indegrees, counts, align='center')
     ax_indegrees.set_xlabel("indegree")
     ax_indegrees.set_ylabel("count")
 
     fig_outdegrees, ax_outdegrees = plt.subplots()
-    out_degrees, counts = np.unique(np.sum(connectivity_graph, axis=0), return_counts=True)
-    ax_outdegrees.bar(out_degrees, counts, align='center')
+    outdegrees, counts = np.unique(np.sum(connectivity_graph, axis=0), return_counts=True)
+    ax_outdegrees.bar(outdegrees, counts, align='center')
     ax_outdegrees.set_xlabel("outdegree")
     ax_outdegrees.set_ylabel("count")
 
