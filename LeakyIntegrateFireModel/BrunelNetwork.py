@@ -124,10 +124,10 @@ external_freq_excitatory = 0.9*freq_threshold  # kHz (is varied for different si
 external_freq_inhibitory = external_freq_excitatory
 print(external_freq_excitatory)
 # synapse properties
+# inhibitory
+g_inh = 3  # unitless (so not conductances here) (relative strength of inhibitory connections)
 # excitatory
 g_exc = 1  # unitless (so not conductances here)
-# inhibitory
-g_inh = 4.5  # unitless (so not conductances here) (relative strength of inhibitory connections)
 
 # noinspection PyTypeChecker
 J_PSP_amplitude_matrix = np.block([
@@ -139,7 +139,7 @@ J_PSP_amplitude_matrix = np.block([
 weighted_connectivity_matrix = connectivity_matrix * J_PSP_amplitude_matrix
 
 # simulation properties
-simulation_time = 100  # ms
+simulation_time = 600  # ms
 time_step = 1  # ms
 
 transmission_delay_steps = round(transmission_delay/time_step)
@@ -180,17 +180,24 @@ while k < number_of_time_steps-1:
     if (k + spike_skip_steps) < len(V_t[0, :]) - 1:
         V_t[cells_spiked, k:(k + spike_skip_steps)] = np.NaN
         V_t[cells_spiked, (k + spike_skip_steps)] = V_reset
+    else:
+        V_t[cells_spiked, k:] = np.NaN
 
     # determine injected current
     spiked_external_synapses_each_cell = np.count_nonzero(external_generated_spike_times == k, axis=(1, 2))
-    I_t[:, k] = 1/Rm*tau_vector*J_PSP_amplitude_excitatory*spiked_external_synapses_each_cell
-    spiked_connected_result = np.zeros(weighted_connectivity_matrix.shape)
+    I_t[:, k] = tau_vector/Rm*J_PSP_amplitude_excitatory*spiked_external_synapses_each_cell
+    # spiked_connected_result = np.zeros(weighted_connectivity_matrix.shape)
+    spiked_connected_result = np.zeros(number_of_cells)
     if k-transmission_delay_steps in spikes:
         if spikes.get(k-transmission_delay_steps).size != 0:
             spikes_cells_boolean = np.zeros(number_of_cells, dtype=bool)
             spikes_cells_boolean[spikes.get(k-transmission_delay_steps)] = True
             # spikes
-            spiked_connected_result = weighted_connectivity_matrix * spikes_cells_boolean
+            # spiked_connected_result = weighted_connectivity_matrix * spikes_cells_boolean
+            # print(spikes_cells_boolean.shape)
+            # print(weighted_connectivity_matrix.shape)
+            spiked_connected_result = weighted_connectivity_matrix @ spikes_cells_boolean
+            # print(spiked_connected_result.shape)
             # ^ gives synaptic weight if both a spike has occurred in the pre-synaptic cell and
             # a connection is present between the pre-synaptic cell and the postsynaptic cell
 
@@ -201,11 +208,15 @@ while k < number_of_time_steps-1:
     dynamics_shape = (num_cells_dynamics, num_cells_dynamics)
 
     # add synaptic currents to injected current to get total current going into the particular cells.
-    I_t[cells_dynamics, k] += 1/Rm*tau_vector[cells_dynamics] * \
-                              np.sum(spiked_connected_result[cells_dynamics_matrix].reshape(dynamics_shape), axis=1)
+    # I_t[cells_dynamics, k] += tau_vector[cells_dynamics]/Rm * \
+    #                           np.sum(spiked_connected_result[cells_dynamics_matrix].reshape(dynamics_shape), axis=1)
+    # I_t[cells_dynamics, k] += tau_vector[cells_dynamics] / Rm * \
+    #                           np.sum(spiked_connected_result[cells_dynamics, :], axis=1)
+    I_t[cells_dynamics, k] += tau_vector[cells_dynamics] / Rm * \
+                              spiked_connected_result[cells_dynamics]
     # standard dynamics, when a spike has NOT recently occurred. (Implicit/Backward Euler)
-    V_t[cells_dynamics, k + 1] = ((tau_vector[cells_dynamics] * V_t[cells_dynamics, k] +
-                                   time_step * EL + Rm * I_t[cells_dynamics, k]) / (tau_vector[cells_dynamics] + time_step))
+    V_t[cells_dynamics, k + 1] = (tau_vector[cells_dynamics] * V_t[cells_dynamics, k] +
+                                   time_step * EL + Rm * I_t[cells_dynamics, k]) / (tau_vector[cells_dynamics] + time_step)
     # Forward Euler
     # V_t[cells_dynamics, k + 1] = (1 - time_step / tau_vector[cells_dynamics]) * V_t[cells_dynamics, k] + \
     #                              time_step/tau_vector[cells_dynamics] * (Rm * I_t[cells_dynamics, k])
@@ -245,16 +256,25 @@ fig, ax = plt.subplots()
 number_of_scatter_plot_cells = 50
 jet_colors = cm.rainbow(np.linspace(0, 1, number_of_scatter_plot_cells))
 chosen_cells = rng.choice(number_of_cells, number_of_scatter_plot_cells)
+total_spikes = np.zeros(number_of_time_steps)
 for spike_time, spiked_cells in spikes.items():
+    total_spikes[spike_time] += len(spiked_cells)
     spiked_chosen_cells = np.intersect1d(spiked_cells, chosen_cells)
     if spiked_chosen_cells.size != 0:
         spiked_chosen_cells_indices = np.where(np.in1d(chosen_cells, spiked_chosen_cells))[0]
         ax.scatter(time_array[spike_time]*np.ones(spiked_chosen_cells_indices.shape),
                    spiked_chosen_cells_indices, color=jet_colors[spiked_chosen_cells_indices])
+
 ax.set_yticks([])
 ax.set_xlim(0, simulation_time)
 ax.set_xlabel('time (ms)')
 ax.set_ylabel('cell index')
+
+instant_freq = total_spikes/time_step
+fig_instant_freq, ax_instant_freq = plt.subplots()
+ax_instant_freq.plot(time_array, instant_freq)
+ax_instant_freq.set_xlabel('time (ms)')
+ax_instant_freq.set_ylabel(r'instant freq ($\frac{1}{dt}$)')
 
 fig_volt, ax_volt = plt.subplots()
 for post_cell_index, post_cell_color in zip(range(number_of_plotted_cells), colors):
