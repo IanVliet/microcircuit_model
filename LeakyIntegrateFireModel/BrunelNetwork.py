@@ -49,7 +49,7 @@ def poisson_distribution_spike_generation(freq, total_time, time_step_size, cell
 
 
 def uniform_log_spike_generation(freq, total_time, time_step_size, total_time_steps, cells, connections):
-    # generate external spike trains
+    # generate external spike trains --> from "SIMULATING THE POISSON PROCESS" by PATRICK MCQUIGHAN
     average_number_of_spikes = ceil(freq * total_time)  # freq * time interval ([kHz]*[ms])
     uniform_for_external_spike_intervals = \
         rng.uniform(0, 1, (cells, connections, average_number_of_spikes))
@@ -78,7 +78,7 @@ def uniform_log_spike_generation(freq, total_time, time_step_size, total_time_st
 
 
 def uniform_probability_spike_generation(freq, total_time, time_step_size, total_time_steps, cells, connections):
-    # generate external spike trains
+    # generate external spike trains --> from "Poisson Model of Spike Generation" by Professor David Heeger
     uniform_for_external_spike_intervals = \
         rng.uniform(0, 1, (cells, connections, total_time_steps))
     external_spike_steps = uniform_for_external_spike_intervals <= freq*time_step_size
@@ -98,7 +98,7 @@ C_random_excitatory_connections = 1000
 C_random_inhibitory_connections = round(gamma_ratio_connections * C_random_excitatory_connections)
 C_random_connections = C_random_excitatory_connections + C_random_inhibitory_connections
 C_ext_connections = C_random_excitatory_connections
-epsilon_connection_probability = 0.1  # C_random_excitatory_connections/number_excitatory_cells
+epsilon_connection_probability = 1.0  # C_random_excitatory_connections/number_excitatory_cells
 connectivity_matrix = constant_probability_random_connectivity_matrix(number_of_cells, epsilon_connection_probability)
 # the receiving (postsynaptic) cell corresponds to the row,
 # and the (presynaptic) cells which give it a connection correspond to columns in that row which have a value
@@ -125,9 +125,9 @@ external_freq_inhibitory = external_freq_excitatory
 print(external_freq_excitatory)
 # synapse properties
 # inhibitory
-g_inh = 3  # unitless (so not conductances here) (relative strength of inhibitory connections)
+g_inh = 4.5  # unitless (so not conductances here) (relative strength of inhibitory connections)
 # excitatory
-g_exc = 1  # unitless (so not conductances here)
+g_exc = g_inh  # unitless (so not conductances here)
 
 # noinspection PyTypeChecker
 J_PSP_amplitude_matrix = np.block([
@@ -139,8 +139,8 @@ J_PSP_amplitude_matrix = np.block([
 weighted_connectivity_matrix = connectivity_matrix * J_PSP_amplitude_matrix
 
 # simulation properties
-simulation_time = 600  # ms
-time_step = 1  # ms
+simulation_time = 1200  # ms
+time_step = 0.1  # ms
 
 transmission_delay_steps = round(transmission_delay/time_step)
 
@@ -149,9 +149,13 @@ if spike_skip_steps == 0:
     spike_skip_steps = 1
 number_of_time_steps = round(simulation_time/time_step)
 time_array = np.arange(0, simulation_time, time_step)
-V_t = np.zeros((number_of_cells, number_of_time_steps))  # voltage at each time
+V_t = np.zeros((number_of_cells, 2))  # voltage at each time
 V_t[:, 0] = EL  # the voltage for the cells has a potential at t=0 equal to EL
-I_t = np.zeros(V_t.shape)  # if Rm is in M ohm, then I_t is in nA. (Current at each time)
+save_voltage_data_every_ms = 1  # ms
+save_voltage_data_every_step = round(1/time_step)  # step
+saved_voltage_data = np.zeros((number_of_cells, round(simulation_time/save_voltage_data_every_ms)))
+I_t = np.zeros(number_of_cells)  # if Rm is in M ohm, then I_t is in nA. (Current at each time)
+cells_in_refractory_period = np.zeros(number_of_cells) - 1
 
 start_spike_generation = time.time()
 print("Parameter initialisation: "+str(start_spike_generation-start_program)+" s")
@@ -167,8 +171,10 @@ print_progression_every = round(number_of_time_steps/number_of_progression_updat
 print("Start simulation:")
 start_simulation = time.time()
 while k < number_of_time_steps-1:
+    current_index = k % 2
+    next_index = (k + 1) % 2
     # cells with cell dynamics which also spiked (therefore have no dynamics next timestep)
-    cells_spiked = np.logical_and(np.invert(np.isnan(V_t[:, k])), (V_t[:, k] >= V_th))
+    cells_spiked = np.logical_and(np.invert(np.isnan(V_t[:, current_index])), (V_t[:, current_index] >= V_th))
     indices_cells_spiked = np.where(cells_spiked)[0]
     if k % print_progression_every == 0:
         progress = k // print_progression_every
@@ -177,55 +183,67 @@ while k < number_of_time_steps-1:
     if indices_cells_spiked.size != 0:
         spikes[k] = indices_cells_spiked
 
-    if (k + spike_skip_steps) < len(V_t[0, :]) - 1:
-        V_t[cells_spiked, k:(k + spike_skip_steps)] = np.NaN
-        V_t[cells_spiked, (k + spike_skip_steps)] = V_reset
-    else:
-        V_t[cells_spiked, k:] = np.NaN
+    # for the cells that spiked, start the refractory period
+    cells_in_refractory_period[cells_spiked] = spike_skip_steps
+    # for the cells which have refractory period left, set the V_t to np.NaN
+    V_t[cells_in_refractory_period >= 1, current_index:] = np.NaN
+    # for the cells which have finished refractory period, set the voltage to its reset voltage
+    V_t[cells_in_refractory_period == 0] = V_reset
 
     # determine injected current
     spiked_external_synapses_each_cell = np.count_nonzero(external_generated_spike_times == k, axis=(1, 2))
-    I_t[:, k] = tau_vector/Rm*J_PSP_amplitude_excitatory*spiked_external_synapses_each_cell
+    I_t[:] = tau_vector/Rm*J_PSP_amplitude_excitatory*spiked_external_synapses_each_cell
+    # cells with cell dynamics (from this timestep)
+    cells_dynamics = np.invert(np.isnan(V_t[:, current_index]))
+    cells_dynamics_matrix = np.logical_and(cells_dynamics[:, None], cells_dynamics[None, :])
+    num_cells_dynamics = np.sum(cells_dynamics)
+    dynamics_shape = (num_cells_dynamics, num_cells_dynamics)
     # spiked_connected_result = np.zeros(weighted_connectivity_matrix.shape)
     spiked_connected_result = np.zeros(number_of_cells)
     if k-transmission_delay_steps in spikes:
         if spikes.get(k-transmission_delay_steps).size != 0:
             spikes_cells_boolean = np.zeros(number_of_cells, dtype=bool)
             spikes_cells_boolean[spikes.get(k-transmission_delay_steps)] = True
+            # print("arriving spikes: " + str(spikes.get(k-transmission_delay_steps)))
+            # print("spikes_cells_boolean: " + str(spikes_cells_boolean[spikes.get(k-transmission_delay_steps)]))
             # spikes
-            # spiked_connected_result = weighted_connectivity_matrix * spikes_cells_boolean
-            # print(spikes_cells_boolean.shape)
-            # print(weighted_connectivity_matrix.shape)
-            spiked_connected_result = weighted_connectivity_matrix @ spikes_cells_boolean
-            # print(spiked_connected_result.shape)
+            # print("total spikes_cells_boolean: " + str(np.sum(spikes_cells_boolean)))
+            spiked_connected_result[cells_dynamics] = \
+                weighted_connectivity_matrix[cells_dynamics, :] @ spikes_cells_boolean
+            # spiked_connected_result[cells_dynamics] = \
+            #     weighted_connectivity_matrix[cells_dynamics_matrix].reshape(dynamics_shape) @ spikes_cells_boolean[cells_dynamics]
+            # print("1 total spiked_connected_result: " + str(np.sum(spiked_connected_result)))
+            # print("spiked_connected_result: " + str(spiked_connected_result[spikes.get(k-transmission_delay_steps)]))
             # ^ gives synaptic weight if both a spike has occurred in the pre-synaptic cell and
             # a connection is present between the pre-synaptic cell and the postsynaptic cell
 
-    # cells with cell dynamics (from this timestep)
-    cells_dynamics = np.invert(np.isnan(V_t[:, k]))
-    cells_dynamics_matrix = np.logical_and(cells_dynamics[:, None], cells_dynamics[None, :])
-    num_cells_dynamics = np.sum(cells_dynamics)
-    dynamics_shape = (num_cells_dynamics, num_cells_dynamics)
-
     # add synaptic currents to injected current to get total current going into the particular cells.
-    # I_t[cells_dynamics, k] += tau_vector[cells_dynamics]/Rm * \
-    #                           np.sum(spiked_connected_result[cells_dynamics_matrix].reshape(dynamics_shape), axis=1)
-    # I_t[cells_dynamics, k] += tau_vector[cells_dynamics] / Rm * \
-    #                           np.sum(spiked_connected_result[cells_dynamics, :], axis=1)
-    I_t[cells_dynamics, k] += tau_vector[cells_dynamics] / Rm * \
+    # print("total I_t before: " + str(np.sum(I_t)))
+    total_before = np.sum(I_t)
+    I_t[cells_dynamics] += tau_vector[cells_dynamics] / Rm * \
                               spiked_connected_result[cells_dynamics]
+    # print("total I_t after: " + str(np.sum(I_t)))
+    # print("total I_t difference: " + str(np.sum(I_t)-total_before))
     # standard dynamics, when a spike has NOT recently occurred. (Implicit/Backward Euler)
-    V_t[cells_dynamics, k + 1] = (tau_vector[cells_dynamics] * V_t[cells_dynamics, k] +
-                                   time_step * EL + Rm * I_t[cells_dynamics, k]) / (tau_vector[cells_dynamics] + time_step)
+    V_t[cells_dynamics, next_index] = (tau_vector[cells_dynamics] * V_t[cells_dynamics, current_index] +
+                                   time_step * EL + Rm * I_t[cells_dynamics]) / (tau_vector[cells_dynamics] + time_step)
     # Forward Euler
     # V_t[cells_dynamics, k + 1] = (1 - time_step / tau_vector[cells_dynamics]) * V_t[cells_dynamics, k] + \
     #                              time_step/tau_vector[cells_dynamics] * (Rm * I_t[cells_dynamics, k])
+    if k % save_voltage_data_every_step == 0:
+        saved_voltage_data[:, k // save_voltage_data_every_step] = np.copy(V_t[:, current_index])
+    cells_in_refractory_period[cells_in_refractory_period >= 0] -= 1
     k += 1
 
 end_simulation = time.time()
 print("Simulation: "+str(end_simulation - start_simulation)+" s")
 # print(np.nanmean(V_t[0:5, 50:]))
-print("End simulation, start plotting")
+print("End simulation, start saving data")
+
+end_saving_data = time.time()
+print("Saving data: "+str(end_saving_data-end_simulation)+" s")
+
+print("End saving data, start plotting")
 
 fig_ext_spikes, ax_ext_spikes = plt.subplots()
 ax_ext_spikes.hist(external_generated_spike_times.flatten(), bins=number_of_time_steps + 1)
@@ -270,15 +288,16 @@ ax.set_xlim(0, simulation_time)
 ax.set_xlabel('time (ms)')
 ax.set_ylabel('cell index')
 
-instant_freq = total_spikes/time_step
+# instant_freq = total_spikes/time_step
+# total spikes also used in "https://brunomaga.github.io/LIF-Brunel"
 fig_instant_freq, ax_instant_freq = plt.subplots()
-ax_instant_freq.plot(time_array, instant_freq)
+ax_instant_freq.bar(time_array, total_spikes)
 ax_instant_freq.set_xlabel('time (ms)')
-ax_instant_freq.set_ylabel(r'instant freq ($\frac{1}{dt}$)')
+ax_instant_freq.set_ylabel(r'total number of spikes')
 
 fig_volt, ax_volt = plt.subplots()
 for post_cell_index, post_cell_color in zip(range(number_of_plotted_cells), colors):
-    ax_volt.plot(time_array, V_t[post_cell_index, :], color=post_cell_color, label=post_cell_index)
+    ax_volt.plot(time_array[::save_voltage_data_every_step], saved_voltage_data[post_cell_index, :], color=post_cell_color, label=post_cell_index)
 # ax_volt.plot(time_array, V_t[0, :].T, color=colors[0], label=0)
 ax_volt.set_ylim(-5, 35)
 ax_volt.axhline(V_th, color='r', linestyle=':')
@@ -287,5 +306,5 @@ ax_volt.set_ylabel('membrane potential (mV)')
 ax_volt.legend()
 
 end_plotting = time.time()
-print("Plotting: "+str(end_plotting-end_simulation)+" s")
+print("Plotting: "+str(end_plotting-end_saving_data)+" s")
 plt.show()
