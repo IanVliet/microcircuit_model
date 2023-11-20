@@ -1,3 +1,6 @@
+import shutil
+import sys
+import os
 import matplotlib.pyplot as plt
 from matplotlib import lines
 import matplotlib.cm as cm
@@ -5,14 +8,65 @@ import numpy as np
 from math import ceil
 from matplotlib.ticker import PercentFormatter
 import time
+import json
 
 # def injected_dc_current(time_value, lower_limit, upper_limit, current_value):
 #     in_time_interval = np.logical_and(lower_limit <= time_value, upper_limit >= time_value)
 #     return current_value*in_time_interval
+start_program = time.time()
+parameter_filename = "config.json"
+try:
+    with open(parameter_filename, "r") as configfile:
+        json_parameters = json.load(configfile)
 
+    int_for_random_generator = json_parameters['int_for_random_generator']
 
-rng = np.random.default_rng(42)
+    # network properties
+    number_of_cells = json_parameters['number_of_cells']
+    ratio_excitatory_cells = json_parameters['ratio_excitatory_cells']
+    gamma_ratio_connections = json_parameters['gamma_ratio_connections']
+    epsilon_connection_probability = json_parameters['epsilon_connection_probability']
+    # epsilon_connection_probability = C_random_excitatory_connections/number_excitatory_cells
 
+    # cell properties https://link.springer.com/article/10.1023/A:1008925309027
+    EL = json_parameters['EL']  # mV
+    V_reset = json_parameters['V_reset']  # mV
+    Rm = json_parameters['Rm']  # M ohm (not needed anymore since RI is defined in completeness
+    tau_E = json_parameters['tau_E']  # ms (time constant RC of excitatory neuron)
+    tau_I = json_parameters['tau_I']  # ms (time constant RC of inhibitory neuron)
+    V_th = json_parameters['V_th']  # mV (threshold voltage (=θ))
+    refractory_period = json_parameters['refractory_period']  # ms
+    transmission_delay = json_parameters['transmission_delay']  # ms
+
+    # synaptic properties, and external frequency
+    J_PSP_amplitude_excitatory = json_parameters['J_PSP_amplitude_excitatory']  # mV (PSP is postsynaptic potential amplitude)
+    ratio_external_freq_to_threshold_freq = json_parameters['ratio_external_freq_to_threshold_freq']
+    g_inh = json_parameters['g_inh']  # unitless (so not conductances here) (relative strength of inhibitory connections)
+
+    # simulation properties
+    simulation_time = json_parameters['simulation_time']  # ms
+    time_step = json_parameters['time_step']  # ms
+
+    save_voltage_data_every_ms = json_parameters['save_voltage_data_every_ms']  # ms  (the time between datapoints for the voltage data)
+    number_of_progression_updates = json_parameters['number_of_progression_updates']  # the number of updates given (e.g. if it is 10, it will give 0%, 10%, ... , 90%)
+    number_of_scatter_plot_cells = json_parameters['number_of_scatter_plot_cells']
+
+except IOError:
+    print("Could not process the file due to IOError")
+    sys.exit(1)
+except KeyError:
+    print("A key was not defined")
+    sys.exit(2)
+
+end_parameters = time.time()
+print("get parameters: "+str(end_parameters-start_program)+" s")
+rng = np.random.default_rng(int_for_random_generator)
+number_excitatory_cells = round(ratio_excitatory_cells * number_of_cells)
+number_inhibitory_cells = number_of_cells - number_excitatory_cells
+C_random_excitatory_connections = round(number_excitatory_cells * epsilon_connection_probability)
+C_random_inhibitory_connections = round(gamma_ratio_connections * C_random_excitatory_connections)
+C_random_connections = C_random_excitatory_connections + C_random_inhibitory_connections
+C_ext_connections = C_random_excitatory_connections
 
 def poisson_distribution_spike_generation(freq, total_time, time_step_size, cells, connections):
     # generate external spike trains
@@ -89,43 +143,20 @@ def constant_probability_random_connectivity_matrix(num_cells, probability):
     return np.random.uniform(size=(num_cells, num_cells)) <= probability
 
 
-start_program = time.time()
-number_of_cells = 1250
-number_excitatory_cells = round(0.8*number_of_cells)
-number_inhibitory_cells = number_of_cells - number_excitatory_cells
-gamma_ratio_connections = 0.25
-C_random_excitatory_connections = 1000
-C_random_inhibitory_connections = round(gamma_ratio_connections * C_random_excitatory_connections)
-C_random_connections = C_random_excitatory_connections + C_random_inhibitory_connections
-C_ext_connections = C_random_excitatory_connections
-epsilon_connection_probability = 1.0  # C_random_excitatory_connections/number_excitatory_cells
+
 connectivity_matrix = constant_probability_random_connectivity_matrix(number_of_cells, epsilon_connection_probability)
 # the receiving (postsynaptic) cell corresponds to the row,
 # and the (presynaptic) cells which give it a connection correspond to columns in that row which have a value
 # of 1. So if it is [[0, 1], [0, 0]] then the first cell (index 0) has a connection
 # which it receives from cell with index 1.
 
-# cell properties https://link.springer.com/article/10.1023/A:1008925309027
-EL = 0  # mV
-V_reset = 10  # mV
-Rm = 1  # M ohm (not needed anymore since RI is defined in completeness
-tau_E = 20  # ms (time constant RC of excitatory neuron)
-tau_I = 20  # ms (time constant RC of inhibitory neuron)
-V_th = 20  # mV (threshold voltage (=θ))
-refractory_period = 2.0  # ms
-transmission_delay = 1.5  # ms
-
 tau_vector = np.block([np.ones(number_excitatory_cells)*tau_E, np.ones([number_inhibitory_cells])*tau_I])
 
-J_PSP_amplitude_excitatory = 0.1  # mV (PSP is postsynaptic potential amplitude)
 J_PSP_amplitude_inhibitory = J_PSP_amplitude_excitatory  # mV (PSP is postsynaptic potential amplitude)
 freq_threshold = V_th/(J_PSP_amplitude_excitatory*C_random_excitatory_connections*tau_E)  # kHz
-external_freq_excitatory = 0.9*freq_threshold  # kHz (is varied for different simulations)
+external_freq_excitatory = ratio_external_freq_to_threshold_freq*freq_threshold  # kHz (is varied for different simulations)
 external_freq_inhibitory = external_freq_excitatory
-print(external_freq_excitatory)
 # synapse properties
-# inhibitory
-g_inh = 4.5  # unitless (so not conductances here) (relative strength of inhibitory connections)
 # excitatory
 g_exc = g_inh  # unitless (so not conductances here)
 
@@ -138,10 +169,6 @@ J_PSP_amplitude_matrix = np.block([
 ])
 weighted_connectivity_matrix = connectivity_matrix * J_PSP_amplitude_matrix
 
-# simulation properties
-simulation_time = 1200  # ms
-time_step = 0.1  # ms
-
 transmission_delay_steps = round(transmission_delay/time_step)
 
 spike_skip_steps = round(refractory_period/time_step)
@@ -151,14 +178,13 @@ number_of_time_steps = round(simulation_time/time_step)
 time_array = np.arange(0, simulation_time, time_step)
 V_t = np.zeros((number_of_cells, 2))  # voltage at each time
 V_t[:, 0] = EL  # the voltage for the cells has a potential at t=0 equal to EL
-save_voltage_data_every_ms = 1  # ms
-save_voltage_data_every_step = round(1/time_step)  # step
+save_voltage_data_every_step = round(save_voltage_data_every_ms/time_step)  # step
 saved_voltage_data = np.zeros((number_of_cells, round(simulation_time/save_voltage_data_every_ms)))
 I_t = np.zeros(number_of_cells)  # if Rm is in M ohm, then I_t is in nA. (Current at each time)
 cells_in_refractory_period = np.zeros(number_of_cells) - 1
 
 start_spike_generation = time.time()
-print("Parameter initialisation: "+str(start_spike_generation-start_program)+" s")
+print("setup simulation: "+str(start_spike_generation-end_parameters)+" s")
 external_generated_spike_times = uniform_log_spike_generation(external_freq_excitatory, simulation_time, time_step,
                                                               number_of_time_steps, number_of_cells, C_ext_connections)
 end_spike_generation = time.time()
@@ -240,71 +266,25 @@ print("Simulation: "+str(end_simulation - start_simulation)+" s")
 # print(np.nanmean(V_t[0:5, 50:]))
 print("End simulation, start saving data")
 
+if not os.path.exists('saved_data_brunel_network'):
+    os.makedirs('saved_data_brunel_network')
+
+folder_identifier = 0
+while os.path.exists("saved_data_brunel_network/" + str(folder_identifier)):
+    folder_identifier += 1
+str_identifier = "saved_data_brunel_network/" + str(folder_identifier)
+os.makedirs(str_identifier)
+
+with open(str_identifier + "/spikes.npy", "wb") as spikesfile:
+    np.save(spikesfile, spikes)
+
+with open(str_identifier + "/voltage_traces.npy", "wb") as voltage_file:
+    np.save(voltage_file, saved_voltage_data)
+
+with open(str_identifier + "/external_spikes.npy", "wb") as external_spikes_file:
+    np.save(external_spikes_file, external_generated_spike_times)
+
+shutil.copy(parameter_filename, str_identifier + "/config.json")
+
 end_saving_data = time.time()
 print("Saving data: "+str(end_saving_data-end_simulation)+" s")
-
-print("End saving data, start plotting")
-
-fig_ext_spikes, ax_ext_spikes = plt.subplots()
-ax_ext_spikes.hist(external_generated_spike_times.flatten(), bins=number_of_time_steps + 1)
-ax_ext_spikes.set_xlim(0, simulation_time)
-ax_ext_spikes.set_xlabel("spike times (ms)")
-ax_ext_spikes.set_ylabel("total spike count")
-
-fig_ext_spikes_count, ax_ext_spikes_count = plt.subplots()
-spike_count_per_connection_ext = np.count_nonzero(external_generated_spike_times <= number_of_time_steps, axis=2)
-# probability_spike_count = spike_count_per_connection_ext/np.sum(spike_count_per_connection_ext)*100
-ax_ext_spikes_count.hist(spike_count_per_connection_ext.flatten(), bins=10, density=True)
-ax_ext_spikes_count.set_xlabel("spike count per connection")
-ax_ext_spikes_count.set_ylabel("probability (%)")
-ax_ext_spikes_count.yaxis.set_major_formatter(PercentFormatter(1.0))
-
-fig_ext_spikes_dif, ax_ext_spikes_dif = plt.subplots()
-ax_ext_spikes_dif.hist(np.diff(external_generated_spike_times).flatten(), bins=number_of_time_steps + 1, density=True)
-ax_ext_spikes_dif.set_xlabel("spike interval (ms)")
-ax_ext_spikes_dif.set_ylabel("probability (%)")
-ax_ext_spikes_dif.yaxis.set_major_formatter(PercentFormatter(1.0))
-
-number_of_plotted_cells = 5
-colors = cm.rainbow(np.linspace(0, 1, number_of_plotted_cells))
-line_styles = lines.lineStyles.keys()
-
-fig, ax = plt.subplots()
-
-number_of_scatter_plot_cells = 50
-jet_colors = cm.rainbow(np.linspace(0, 1, number_of_scatter_plot_cells))
-chosen_cells = rng.choice(number_of_cells, number_of_scatter_plot_cells)
-total_spikes = np.zeros(number_of_time_steps)
-for spike_time, spiked_cells in spikes.items():
-    total_spikes[spike_time] += len(spiked_cells)
-    spiked_chosen_cells = np.intersect1d(spiked_cells, chosen_cells)
-    if spiked_chosen_cells.size != 0:
-        spiked_chosen_cells_indices = np.where(np.in1d(chosen_cells, spiked_chosen_cells))[0]
-        ax.scatter(time_array[spike_time]*np.ones(spiked_chosen_cells_indices.shape),
-                   spiked_chosen_cells_indices, color=jet_colors[spiked_chosen_cells_indices])
-
-ax.set_yticks([])
-ax.set_xlim(0, simulation_time)
-ax.set_xlabel('time (ms)')
-ax.set_ylabel('cell index')
-
-# instant_freq = total_spikes/time_step
-# total spikes also used in "https://brunomaga.github.io/LIF-Brunel"
-fig_instant_freq, ax_instant_freq = plt.subplots()
-ax_instant_freq.bar(time_array, total_spikes)
-ax_instant_freq.set_xlabel('time (ms)')
-ax_instant_freq.set_ylabel(r'total number of spikes')
-
-fig_volt, ax_volt = plt.subplots()
-for post_cell_index, post_cell_color in zip(range(number_of_plotted_cells), colors):
-    ax_volt.plot(time_array[::save_voltage_data_every_step], saved_voltage_data[post_cell_index, :], color=post_cell_color, label=post_cell_index)
-# ax_volt.plot(time_array, V_t[0, :].T, color=colors[0], label=0)
-ax_volt.set_ylim(-5, 35)
-ax_volt.axhline(V_th, color='r', linestyle=':')
-ax_volt.set_xlabel('time (ms)')
-ax_volt.set_ylabel('membrane potential (mV)')
-ax_volt.legend()
-
-end_plotting = time.time()
-print("Plotting: "+str(end_plotting-end_saving_data)+" s")
-plt.show()
