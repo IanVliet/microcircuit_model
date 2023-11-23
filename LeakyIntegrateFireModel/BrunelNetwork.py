@@ -2,6 +2,7 @@ import shutil
 import sys
 import os
 import matplotlib.pyplot as plt
+import numpy
 from matplotlib import lines
 import matplotlib.cm as cm
 import numpy as np
@@ -139,6 +140,13 @@ def uniform_probability_spike_generation(freq, total_time, time_step_size, total
     return external_spike_steps
 
 
+def binomial_probability_spike_generation(freq, time_step_size, total_time_steps, cells, connections):
+    # generate external spike trains --> from "Poisson Model of Spike Generation" by Professor David Heeger
+    external_spike_steps = np.zeros((cells, total_time_steps), dtype=numpy.short)
+    external_spike_steps[:, :] = \
+        rng.binomial(connections, freq*time_step_size, (cells, total_time_steps))
+    return external_spike_steps
+
 def constant_probability_random_connectivity_matrix(num_cells, probability):
     return np.random.uniform(size=(num_cells, num_cells)) <= probability
 
@@ -185,8 +193,17 @@ cells_in_refractory_period = np.zeros(number_of_cells) - 1
 
 start_spike_generation = time.time()
 print("setup simulation: "+str(start_spike_generation-end_parameters)+" s")
+alt = True
+print("alt: {}".format(alt))
 external_generated_spike_times = uniform_log_spike_generation(external_freq_excitatory, simulation_time, time_step,
                                                               number_of_time_steps, number_of_cells, C_ext_connections)
+# alt_external_generated_spike_times = uniform_probability_spike_generation(external_freq_excitatory, simulation_time,
+#                                                                           time_step, number_of_time_steps,
+#                                                                           number_of_cells, C_ext_connections)
+alt_external_generated_spike_times = binomial_probability_spike_generation(external_freq_excitatory,
+                                                                          time_step, number_of_time_steps,
+                                                                          number_of_cells, C_ext_connections)
+
 end_spike_generation = time.time()
 print("External spike generation: "+str(end_spike_generation - start_spike_generation)+" s")
 
@@ -217,7 +234,11 @@ while k < number_of_time_steps-1:
     V_t[cells_in_refractory_period == 0] = V_reset
 
     # determine injected current
-    spiked_external_synapses_each_cell = np.count_nonzero(external_generated_spike_times == k, axis=(1, 2))
+    if alt:
+        # spiked_external_synapses_each_cell = np.sum(alt_external_generated_spike_times[:, :, k], axis=1)
+        spiked_external_synapses_each_cell = alt_external_generated_spike_times[:, k]
+    else:
+        spiked_external_synapses_each_cell = np.count_nonzero(external_generated_spike_times == k, axis=(1, 2))
     I_t[:] = tau_vector/Rm*J_PSP_amplitude_excitatory*spiked_external_synapses_each_cell
     # cells with cell dynamics (from this timestep)
     cells_dynamics = np.invert(np.isnan(V_t[:, current_index]))
@@ -283,6 +304,10 @@ with open(str_identifier + "/voltage_traces.npy", "wb") as voltage_file:
 
 with open(str_identifier + "/external_spikes.npy", "wb") as external_spikes_file:
     np.save(external_spikes_file, external_generated_spike_times)
+
+with open(str_identifier + "/alt_external_spikes.npy", "wb") as alt_external_spikes_file:
+    np.save(alt_external_spikes_file, alt_external_generated_spike_times)
+
 
 shutil.copy(parameter_filename, str_identifier + "/config.json")
 

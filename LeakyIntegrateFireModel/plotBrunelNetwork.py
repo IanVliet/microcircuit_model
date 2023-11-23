@@ -10,7 +10,7 @@ from matplotlib.ticker import PercentFormatter
 import time
 import json
 
-str_identifier = "saved_data_brunel_network/3"
+str_identifier = "saved_data_brunel_network/10"
 str_identifier_figures = str_identifier + "/figures"
 if not os.path.exists(str_identifier_figures):
     os.makedirs(str_identifier_figures)
@@ -18,6 +18,7 @@ if not os.path.exists(str_identifier_figures):
 spikes_name = "/spikes.npy"
 voltage_traces_name = "/voltage_traces.npy"
 external_spikes_name = "/external_spikes.npy"
+alt_external_spikes_name = "/alt_external_spikes.npy"
 config_name = "/config.json"
 try:
     with open(str_identifier + config_name, "r") as configfile:
@@ -65,6 +66,8 @@ number_of_time_steps = round(simulation_time/time_step)
 rng = np.random.default_rng(int_for_random_generator)
 time_array = np.arange(0, simulation_time, time_step)
 save_voltage_data_every_step = round(save_voltage_data_every_ms/time_step)  # step
+number_excitatory_cells = round(ratio_excitatory_cells * number_of_cells)
+C_random_excitatory_connections = round(number_excitatory_cells * epsilon_connection_probability)
 png_extension = ".png"
 pdf_extension = ".pdf"
 left_lim, right_lim = 500, 600
@@ -132,23 +135,34 @@ if os.path.exists(str_identifier + external_spikes_name):
 
     plot_external_total_spikes_name = "/external_total_spikes"
     fig_ext_spikes, ax_ext_spikes = plt.subplots()
-    ax_ext_spikes.hist(external_generated_spike_times.flatten(), bins=number_of_time_steps + 1)
+    ext_spike_count_step_values, ext_spike_count_time_counts = np.unique(external_generated_spike_times, return_counts=True)
+    ax_ext_spikes.bar(time_step*ext_spike_count_step_values[ext_spike_count_step_values <= number_of_time_steps],
+                      ext_spike_count_time_counts[ext_spike_count_step_values <= number_of_time_steps], label="floats")
+    # ax_ext_spikes.hist(external_generated_spike_times.flatten(), bins=number_of_time_steps + 1, label="floats",
+    #                    histtype='step')
     ax_ext_spikes.set_xlim(0, simulation_time)
     ax_ext_spikes.set_xlabel("spike times (ms)")
     ax_ext_spikes.set_ylabel("total spike count")
-    fig_ext_spikes.savefig(str_identifier_figures + plot_external_total_spikes_name + png_extension)
-    fig_ext_spikes.savefig(str_identifier_figures + plot_external_total_spikes_name + pdf_extension)
 
     plot_external_spikes_per_connection_name = "/external_spikes_per_connection"
     fig_ext_spikes_count, ax_ext_spikes_count = plt.subplots()
     spike_count_per_connection_ext = np.count_nonzero(external_generated_spike_times <= number_of_time_steps, axis=2)
     # probability_spike_count = spike_count_per_connection_ext/np.sum(spike_count_per_connection_ext)*100
-    ax_ext_spikes_count.hist(spike_count_per_connection_ext.flatten(), bins=10, density=True)
+    ax_ext_spikes_count.hist(spike_count_per_connection_ext.flatten(), bins=10, density=True, histtype='step',
+                             label="floats")
     ax_ext_spikes_count.set_xlabel("spike count per connection")
     ax_ext_spikes_count.set_ylabel("probability (%)")
     ax_ext_spikes_count.yaxis.set_major_formatter(PercentFormatter(1.0))
-    fig_ext_spikes_count.savefig(str_identifier_figures + plot_external_spikes_per_connection_name + png_extension)
-    fig_ext_spikes_count.savefig(str_identifier_figures + plot_external_spikes_per_connection_name + pdf_extension)
+
+    plot_external_spikes_per_cell_name = "/external_spikes_per_cell"
+    fig_ext_spikes_count_cell, ax_ext_spikes_count_cell = plt.subplots()
+    spike_count_per_cell_ext = np.sum(np.count_nonzero(external_generated_spike_times <= number_of_time_steps, axis=2), axis=1)
+    # probability_spike_count = spike_count_per_connection_ext/np.sum(spike_count_per_connection_ext)*100
+    ax_ext_spikes_count_cell.hist(spike_count_per_cell_ext.flatten(), bins=10, density=True, histtype='step',
+                             label="floats")
+    ax_ext_spikes_count_cell.set_xlabel("spike count per cell")
+    ax_ext_spikes_count_cell.set_ylabel("probability (%)")
+    ax_ext_spikes_count_cell.yaxis.set_major_formatter(PercentFormatter(1.0))
 
     plot_external_spike_interval_name = "/external_spike_interval"
     fig_ext_spikes_dif, ax_ext_spikes_dif = plt.subplots()
@@ -156,7 +170,28 @@ if os.path.exists(str_identifier + external_spikes_name):
     ax_ext_spikes_dif.set_xlabel("spike interval (ms)")
     ax_ext_spikes_dif.set_ylabel("probability (%)")
     ax_ext_spikes_dif.yaxis.set_major_formatter(PercentFormatter(1.0))
+
+    if os.path.exists(str_identifier + alt_external_spikes_name):
+        with open(str_identifier + alt_external_spikes_name, 'rb') as alt_external_spikes_file:
+            alt_external_generated_spike_times = np.load(alt_external_spikes_file)
+        ax_ext_spikes.bar(time_array, np.sum(alt_external_generated_spike_times, axis=0), label="alt", color="red")
+        ax_ext_spikes.legend()
+
+        ax_ext_spikes_count_cell.hist(np.sum(alt_external_generated_spike_times, axis=1),
+                                 bins=10, density=True, label="average alt", color="red")
+        ax_ext_spikes_count_cell.legend()
+
+    fig_ext_spikes.savefig(str_identifier_figures + plot_external_total_spikes_name + png_extension)
+    fig_ext_spikes.savefig(str_identifier_figures + plot_external_total_spikes_name + pdf_extension)
+
+    fig_ext_spikes_count.savefig(str_identifier_figures + plot_external_spikes_per_connection_name + png_extension)
+    fig_ext_spikes_count.savefig(str_identifier_figures + plot_external_spikes_per_connection_name + pdf_extension)
+
+    fig_ext_spikes_count_cell.savefig(str_identifier_figures + plot_external_spikes_per_cell_name + png_extension)
+    fig_ext_spikes_count_cell.savefig(str_identifier_figures + plot_external_spikes_per_cell_name + pdf_extension)
+
     fig_ext_spikes_dif.savefig(str_identifier_figures + plot_external_spike_interval_name + png_extension)
     fig_ext_spikes_dif.savefig(str_identifier_figures + plot_external_spike_interval_name + pdf_extension)
+
 
 plt.show()
