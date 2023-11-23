@@ -151,7 +151,6 @@ def constant_probability_random_connectivity_matrix(num_cells, probability):
     return np.random.uniform(size=(num_cells, num_cells)) <= probability
 
 
-
 connectivity_matrix = constant_probability_random_connectivity_matrix(number_of_cells, epsilon_connection_probability)
 # the receiving (postsynaptic) cell corresponds to the row,
 # and the (presynaptic) cells which give it a connection correspond to columns in that row which have a value
@@ -193,14 +192,7 @@ cells_in_refractory_period = np.zeros(number_of_cells) - 1
 
 start_spike_generation = time.time()
 print("setup simulation: "+str(start_spike_generation-end_parameters)+" s")
-alt = True
-print("alt: {}".format(alt))
-external_generated_spike_times = uniform_log_spike_generation(external_freq_excitatory, simulation_time, time_step,
-                                                              number_of_time_steps, number_of_cells, C_ext_connections)
-# alt_external_generated_spike_times = uniform_probability_spike_generation(external_freq_excitatory, simulation_time,
-#                                                                           time_step, number_of_time_steps,
-#                                                                           number_of_cells, C_ext_connections)
-alt_external_generated_spike_times = binomial_probability_spike_generation(external_freq_excitatory,
+external_generated_spike_times = binomial_probability_spike_generation(external_freq_excitatory,
                                                                           time_step, number_of_time_steps,
                                                                           number_of_cells, C_ext_connections)
 
@@ -234,11 +226,7 @@ while k < number_of_time_steps-1:
     V_t[cells_in_refractory_period == 0] = V_reset
 
     # determine injected current
-    if alt:
-        # spiked_external_synapses_each_cell = np.sum(alt_external_generated_spike_times[:, :, k], axis=1)
-        spiked_external_synapses_each_cell = alt_external_generated_spike_times[:, k]
-    else:
-        spiked_external_synapses_each_cell = np.count_nonzero(external_generated_spike_times == k, axis=(1, 2))
+    spiked_external_synapses_each_cell = external_generated_spike_times[:, k]
     I_t[:] = tau_vector/Rm*J_PSP_amplitude_excitatory*spiked_external_synapses_each_cell
     # cells with cell dynamics (from this timestep)
     cells_dynamics = np.invert(np.isnan(V_t[:, current_index]))
@@ -302,12 +290,8 @@ with open(str_identifier + "/spikes.npy", "wb") as spikesfile:
 with open(str_identifier + "/voltage_traces.npy", "wb") as voltage_file:
     np.save(voltage_file, saved_voltage_data)
 
-with open(str_identifier + "/external_spikes.npy", "wb") as external_spikes_file:
+with open(str_identifier + "/binomial_external_spikes.npy", "wb") as external_spikes_file:
     np.save(external_spikes_file, external_generated_spike_times)
-
-with open(str_identifier + "/alt_external_spikes.npy", "wb") as alt_external_spikes_file:
-    np.save(alt_external_spikes_file, alt_external_generated_spike_times)
-
 
 shutil.copy(parameter_filename, str_identifier + "/config.json")
 

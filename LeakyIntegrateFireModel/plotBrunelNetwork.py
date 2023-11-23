@@ -10,7 +10,7 @@ from matplotlib.ticker import PercentFormatter
 import time
 import json
 
-str_identifier = "saved_data_brunel_network/10"
+str_identifier = "saved_data_brunel_network/1"
 str_identifier_figures = str_identifier + "/figures"
 if not os.path.exists(str_identifier_figures):
     os.makedirs(str_identifier_figures)
@@ -19,6 +19,7 @@ spikes_name = "/spikes.npy"
 voltage_traces_name = "/voltage_traces.npy"
 external_spikes_name = "/external_spikes.npy"
 alt_external_spikes_name = "/alt_external_spikes.npy"
+binomial_external_spikes_name = "/binomial_external_spikes.npy"
 config_name = "/config.json"
 try:
     with open(str_identifier + config_name, "r") as configfile:
@@ -129,6 +130,7 @@ if os.path.exists(str_identifier + voltage_traces_name):
     fig_volt.savefig(str_identifier_figures + plot_voltage_traces_name + png_extension)
     fig_volt.savefig(str_identifier_figures + plot_voltage_traces_name + pdf_extension)
 
+# the version where the spikes are created through a function with log.
 if os.path.exists(str_identifier + external_spikes_name):
     with open(str_identifier + external_spikes_name, 'rb') as external_spikes_file:
         external_generated_spike_times = np.load(external_spikes_file)
@@ -171,6 +173,7 @@ if os.path.exists(str_identifier + external_spikes_name):
     ax_ext_spikes_dif.set_ylabel("probability (%)")
     ax_ext_spikes_dif.yaxis.set_major_formatter(PercentFormatter(1.0))
 
+    # the version where the spikes are also created through the binomial function.
     if os.path.exists(str_identifier + alt_external_spikes_name):
         with open(str_identifier + alt_external_spikes_name, 'rb') as alt_external_spikes_file:
             alt_external_generated_spike_times = np.load(alt_external_spikes_file)
@@ -192,6 +195,32 @@ if os.path.exists(str_identifier + external_spikes_name):
 
     fig_ext_spikes_dif.savefig(str_identifier_figures + plot_external_spike_interval_name + png_extension)
     fig_ext_spikes_dif.savefig(str_identifier_figures + plot_external_spike_interval_name + pdf_extension)
+
+# the version where the spikes are only created through the binomial function.
+if os.path.exists(str_identifier + binomial_external_spikes_name):
+    with open(str_identifier + binomial_external_spikes_name, 'rb') as external_spikes_file:
+        external_generated_spike_times = np.load(external_spikes_file)
+
+    plot_external_total_spikes_name = "/external_total_spikes"
+    fig_ext_spikes, ax_ext_spikes = plt.subplots()
+    ax_ext_spikes.bar(time_array, np.sum(external_generated_spike_times, axis=0))
+    ax_ext_spikes.set_xlim(0, simulation_time)
+    ax_ext_spikes.set_xlabel("spike times (ms)")
+    ax_ext_spikes.set_ylabel("total spike count")
+
+    plot_external_spikes_per_cell_name = "/external_spikes_per_cell"
+    fig_ext_spikes_count_cell, ax_ext_spikes_count_cell = plt.subplots()
+    ax_ext_spikes_count_cell.hist(np.sum(external_generated_spike_times, axis=1),
+                                  bins=10, density=True)
+    ax_ext_spikes_count_cell.set_xlabel("spike count per cell")
+    ax_ext_spikes_count_cell.set_ylabel("probability (%)")
+    ax_ext_spikes_count_cell.yaxis.set_major_formatter(PercentFormatter(1.0))
+
+    fig_ext_spikes.savefig(str_identifier_figures + plot_external_total_spikes_name + png_extension)
+    fig_ext_spikes.savefig(str_identifier_figures + plot_external_total_spikes_name + pdf_extension)
+
+    fig_ext_spikes_count_cell.savefig(str_identifier_figures + plot_external_spikes_per_cell_name + png_extension)
+    fig_ext_spikes_count_cell.savefig(str_identifier_figures + plot_external_spikes_per_cell_name + pdf_extension)
 
 
 plt.show()
