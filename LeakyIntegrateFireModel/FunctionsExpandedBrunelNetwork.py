@@ -324,8 +324,8 @@ def convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions, 
         print("A_1 generation: " + str(end_A_1 - start_A_1))
         print("A_2 generation: " + str(end_A_2 - end_A_1))
     B = np.block([
-        [A_1, np.zeros(A_1.shape, dtype=bool)],
-        [np.zeros(A_1.shape, dtype=bool), A_2]
+        [A_1.astype(bool), np.zeros(A_1.shape, dtype=bool)],
+        [np.zeros(A_1.shape, dtype=bool), A_2.astype(bool)]
     ])
     M_total_partitions = round(N_1/l_cardinality_partitions)
     nodes_partitions_A_1 = np.arange(N_1)
@@ -374,7 +374,7 @@ def convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions, 
     return B
 
 
-# NEEDS TO BE FIXED STILL!!!
+# NEEDS TO BE FIXED STILL!!! --> seems impossible to calculate
 def convolutive_probabilities(in_degree_distribution, out_degree_distribution, N_total_nodes,
                               l_cardinality_partitions, p_probability, phi_U_probability, phi_D_probability):
     M = round(N_total_nodes/l_cardinality_partitions)
@@ -418,6 +418,76 @@ def get_partition(nodes, l_cardinality, M_partitions, rng):
     return partitioned_graph
 
 
+def cross_entropy(data_distribution, model_distribution):
+    return -np.sum(data_distribution*np.log2(model_distribution[:len(data_distribution)]))
+
+
+def linear_combination_cross_entropy(in_degree_cross_entropy, out_degree_cross_entropy, weight):
+    return weight * in_degree_cross_entropy + (1 - weight) * out_degree_cross_entropy
+
+
+def extend_with_zeros(total_length, original_distribution):
+    new_distribution = np.zeros(total_length)
+    new_distribution[:len(original_distribution)] = original_distribution
+    return new_distribution
+
+
+def produce_connectivity_calculate_cross_entropy(N_total_nodes, int_random_generator, weight, in_degree_elements, out_degree_elements, config):
+    rng = np.random.default_rng(int_random_generator)
+    m_0_nodes = config["m_0"]
+    rho_probability = config["rho"]  # not present in web application? (Noise factor?, Delta?)
+    l_cardinality_partitions = config["l"]  # Likely L in the web application
+    E_k = config["E_k"]  # likely EK in the web application
+    phi_U_probability = config["phi_U"]  # likely phi_U in the web application
+    phi_D_probability = config["phi_D"]  # likely phi_D in the web application
+    delta = config["delta"]
+    noise_factor = config["noise_factor"]
+    dimensions = config["dimensions"]
+    pc = config["pc"]
+
+    B = convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions,
+                              N_total_nodes, E_k, phi_U_probability,
+                              phi_D_probability, rng, in_degree_elements, out_degree_elements, dimensions,
+                              delta=delta, noise_factor=noise_factor, spatial=True, pc=pc)
+
+    # degree distributions of data
+    in_degree_values, in_degree_distribution, out_degree_values, out_degree_distribution = \
+        get_degree_distributions(in_degree_elements, out_degree_elements)
+
+    in_degree, out_degree = \
+        get_interpolated_degree_distributions(in_degree_values, in_degree_distribution, out_degree_values,
+                                              out_degree_distribution, np.max(in_degree_elements),
+                                              np.max(out_degree_elements))
+
+    # degree distributions of model
+    in_degrees, in_degree_counts = np.unique(np.sum(B, axis=1), return_counts=True)
+    out_degrees, out_degree_counts = np.unique(np.sum(B, axis=0), return_counts=True)
+    in_degree_elements_model = np.repeat(in_degrees, in_degree_counts)
+    out_degree_elements_model = np.repeat(out_degrees, out_degree_counts)
+
+    in_degree_values_model, in_degree_distribution_model, out_degree_values_model, out_degree_distribution_model = \
+        get_degree_distributions(in_degree_elements_model, out_degree_elements_model)
+
+    in_degree_gen_model, out_degree_gen_model = \
+        get_interpolated_degree_distributions(in_degree_values_model, in_degree_distribution_model,
+                                              out_degree_values_model,
+                                              out_degree_distribution_model, np.max(in_degree_elements_model),
+                                              np.max(out_degree_elements_model))
+    if len(in_degree) > len(in_degree_gen_model):
+        in_degree_gen_model_extended = extend_with_zeros(len(in_degree), in_degree_gen_model) + 1e-15
+    else:
+        in_degree_gen_model_extended = in_degree_gen_model + 1e-15
+    if len(out_degree) > len(out_degree_gen_model):
+        out_degree_gen_model_extended = extend_with_zeros(len(out_degree), out_degree_gen_model) + 1e-15
+    else:
+        out_degree_gen_model_extended = out_degree_gen_model + 1e-15
+
+    in_degree_cross_entropy = cross_entropy(in_degree, in_degree_gen_model_extended)
+    out_degree_cross_entropy = cross_entropy(out_degree, out_degree_gen_model_extended)
+
+    return {"score": linear_combination_cross_entropy(in_degree_cross_entropy, out_degree_cross_entropy, weight=weight)}
+
+
 def get_csv_degree_elements(in_degree_file_name, out_degree_file_name):
     with open("../degree_data/" + in_degree_file_name) as in_degree_file:
         csv_reader = csv.reader(in_degree_file, delimiter=';')
@@ -452,3 +522,65 @@ def plot_degree_counts(connectivity_graph, title="Convolutive model"):
     ax_outdegrees.set_xlabel("outdegree")
     ax_outdegrees.set_ylabel("probability")
 
+
+def hist_plot_data_model_degree_distributions(option, in_degree_elements, in_degree_elements_model,
+                                              in_degree_elements_matlab_sim, out_degree_elements,
+                                              out_degree_elements_model, out_degree_elements_matlab_sim):
+    fig, ax = plt.subplots(1, 2)
+    num_bins = len(np.unique(in_degree_elements))
+    binsize = 20
+    max_value_indegree = np.max(np.concatenate([in_degree_elements, in_degree_elements_model, in_degree_elements_matlab_sim]))
+    max_value_outdegree = np.max(np.concatenate([out_degree_elements, out_degree_elements_model, out_degree_elements_matlab_sim]))
+    bin_edges_indegree = range(0, max_value_indegree + binsize, binsize)
+    bin_edges_outdegree = range(0, max_value_outdegree + binsize, binsize)
+    density_type = True
+    # if num_bins > 100:
+    #     num_bins = 100
+    ax[0].hist(in_degree_elements, label='data', alpha=1, bins=bin_edges_indegree, density=density_type, edgecolor='black',
+               linewidth=1)
+    ax[0].hist(in_degree_elements_model, label='sim', alpha=0.8, bins=bin_edges_indegree, density=density_type, edgecolor='red',
+               linewidth=2, histtype='step')
+    if option == "matlab_data":
+        ax[0].hist(in_degree_elements_matlab_sim, label='matlab sim', alpha=0.8, bins=bin_edges_indegree, density=density_type,
+                   edgecolor='green', linewidth=2, histtype='step')
+    ax[0].set_xlabel("indegree")
+    ax[0].set_ylabel("probability")
+    ax[1].hist(out_degree_elements, label='data', alpha=1, bins=bin_edges_outdegree, density=density_type, edgecolor='black',
+               linewidth=1)
+    ax[1].hist(out_degree_elements_model, label='sim', alpha=0.8, bins=bin_edges_outdegree, density=density_type, edgecolor='red',
+               linewidth=2, histtype='step')
+    if option == "matlab_data":
+        ax[1].hist(out_degree_elements_matlab_sim, label='matlab sim', alpha=0.8, bins=bin_edges_outdegree, density=density_type,
+                   edgecolor='green', linewidth=2, histtype='step')
+    ax[1].set_xlabel("outdegree")
+    ax[1].set_ylabel("probability")
+    ax[0].ticklabel_format(axis='y', scilimits=(-2, 2))
+    ax[1].ticklabel_format(axis='y', scilimits=(-2, 2))
+    fig.tight_layout()
+    ax[0].legend()
+    ax[1].legend()
+    return fig
+
+
+def step_plot_data_model_degree_distributions(option, in_degree, in_degree_gen_model, in_degree_online_probs,
+                                              out_degree, out_degree_gen_model, out_degree_online_probs):
+    fig, ax = plt.subplots(1, 2)
+    ax[0].step(np.arange(len(in_degree)), in_degree, label="data", where='mid')
+    ax[0].step(np.arange(len(in_degree_gen_model)), in_degree_gen_model, label="own generative model", where='mid')
+    if option == "C_elegans":
+        ax[0].step(np.arange(len(in_degree_online_probs)), in_degree_online_probs, label="online simulator",
+                   where='mid')
+    ax[0].legend()
+    ax[0].set_xlabel("indegree")
+    ax[0].set_ylabel("probability")
+
+    ax[1].step(np.arange(len(out_degree)), out_degree, label="data", where='mid')
+    ax[1].step(np.arange(len(out_degree_gen_model)), out_degree_gen_model, label="own generative model", where='mid')
+    if option == "C_elegans":
+        ax[1].step(np.arange(len(out_degree_online_probs)), out_degree_online_probs, label="online simulator",
+                   where='mid')
+
+    ax[1].set_xlabel("outdegree")
+    ax[1].set_ylabel("probability")
+    ax[1].legend()
+    fig.tight_layout()
