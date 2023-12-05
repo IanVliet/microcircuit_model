@@ -20,11 +20,11 @@ transmission_delay = 1.5  # ms
 
 # synaptic properties, and external frequency
 J_PSP_amplitude_excitatory = 0.1  # mV (PSP is postsynaptic potential amplitude)
-ratio_external_freq_to_threshold_freq = 2
-g_inh = 3  # unitless (so not conductances here) (relative strength of inhibitory connections)
+ratio_external_freq_to_threshold_freq = 0.9
+g_inh = 4.5  # unitless (so not conductances here) (relative strength of inhibitory connections)
 
 # simulation properties
-simulation_time = 600  # ms
+simulation_time = 1200  # ms
 time_step = 0.1  # ms
 
 save_voltage_data_every_ms = 1  # ms  (the time between datapoints for the voltage data)

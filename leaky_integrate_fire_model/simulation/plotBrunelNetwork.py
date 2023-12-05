@@ -10,7 +10,7 @@ from matplotlib.ticker import PercentFormatter
 import time
 import json
 
-str_identifier = "saved_data_brunel_network/1"
+str_identifier = "saved_data_brunel_network/15"
 str_identifier_figures = str_identifier + "/figures"
 if not os.path.exists(str_identifier_figures):
     os.makedirs(str_identifier_figures)
@@ -71,7 +71,7 @@ number_excitatory_cells = round(ratio_excitatory_cells * number_of_cells)
 C_random_excitatory_connections = round(number_excitatory_cells * epsilon_connection_probability)
 png_extension = ".png"
 pdf_extension = ".pdf"
-left_lim, right_lim = 500, 600
+left_lim, right_lim = 1000, 1200
 
 if os.path.exists(str_identifier + spikes_name):
     with open(str_identifier + spikes_name, 'rb') as spikes_file:
@@ -109,6 +109,21 @@ if os.path.exists(str_identifier + spikes_name):
     fig_instant_freq.savefig(str_identifier_figures + plot_total_spikes_name + png_extension)
     fig_instant_freq.savefig(str_identifier_figures + plot_total_spikes_name + pdf_extension)
 
+    # get frequency spectrum of total_spikes
+    print("Average firing rate: " + str(np.sum(total_spikes)*1e3/simulation_time/number_of_cells) + " Hz")
+    plot_freq_spectrum_name = "/freq_spectrum"
+    fig_freq_spectrum, ax_freq_spectrum = plt.subplots()
+    total_spikes_fft = np.fft.fft(total_spikes)
+    total_spikes_power_spec = np.abs(total_spikes_fft)**2
+    frequencies = np.fft.fftfreq(time_array.shape[-1], d=time_step)
+    ax_freq_spectrum.plot(frequencies, total_spikes_fft.real, label='real')
+    ax_freq_spectrum.plot(frequencies, total_spikes_fft.imag, label='imag')
+    ax_freq_spectrum.plot(frequencies, total_spikes_power_spec, label='power')
+    ax_freq_spectrum.set_xlabel('frequency (kHz)')
+    ax_freq_spectrum.set_ylabel(r'Power')
+    ax_freq_spectrum.legend()
+    fig_freq_spectrum.savefig(str_identifier_figures + plot_freq_spectrum_name + png_extension)
+    fig_freq_spectrum.savefig(str_identifier_figures + plot_freq_spectrum_name + pdf_extension)
 
 if os.path.exists(str_identifier + voltage_traces_name):
     with open(str_identifier + voltage_traces_name, 'rb') as voltage_traces_file:

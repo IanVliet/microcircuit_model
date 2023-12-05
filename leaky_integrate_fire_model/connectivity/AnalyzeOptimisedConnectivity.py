@@ -13,7 +13,7 @@ import os
 import json
 import sys
 
-str_identifier = "saved_data_optimised_connectivity/0"
+str_identifier = "saved_data_optimised_connectivity/6"
 fixed_hyperparameters_name = "/fixed_hyperparameters.json"
 
 try:
@@ -31,16 +31,16 @@ except KeyError:
     sys.exit(2)
 
 if option == "manc":
-    with open('manc_v1.0_indegrees.npy', 'rb') as indegree_file:
+    with open('../manc_v1.0_indegrees.npy', 'rb') as indegree_file:
         in_degree_elements = np.load(indegree_file)
 
-    with open('manc_v1.0_outdegrees.npy', 'rb') as outdegree_file:
+    with open('../manc_v1.0_outdegrees.npy', 'rb') as outdegree_file:
         out_degree_elements = np.load(outdegree_file)
 elif option == "hemibrain":
-    with open('hemibrain_v1.2.1_indegrees.npy', 'rb') as indegree_file:
+    with open('../hemibrain_v1.2.1_indegrees.npy', 'rb') as indegree_file:
         in_degree_elements = np.load(indegree_file)
 
-    with open('hemibrain_v1.2.1_outdegrees.npy', 'rb') as outdegree_file:
+    with open('../hemibrain_v1.2.1_outdegrees.npy', 'rb') as outdegree_file:
         out_degree_elements = np.load(outdegree_file)
 else:
     print("The chosen option", option, "is not one of the possible options.")

@@ -19,22 +19,23 @@ fixed_hyperparameters = {
     "N_total_nodes": 10000,
     "int_random_generator": 42,
     "weight": 0.5,
-    "option": "manc",
-    # "option": "hemibrain",
+    # "option": "manc",
+    "option": "hemibrain",
 }
+
 option = fixed_hyperparameters["option"]
 
 if option == "manc":
-    with open('manc_v1.0_indegrees.npy', 'rb') as indegree_file:
+    with open('../manc_v1.0_indegrees.npy', 'rb') as indegree_file:
         in_degree_elements = np.load(indegree_file)
 
-    with open('manc_v1.0_outdegrees.npy', 'rb') as outdegree_file:
+    with open('../manc_v1.0_outdegrees.npy', 'rb') as outdegree_file:
         out_degree_elements = np.load(outdegree_file)
 elif option == "hemibrain":
-    with open('hemibrain_v1.2.1_indegrees.npy', 'rb') as indegree_file:
+    with open('../hemibrain_v1.2.1_indegrees.npy', 'rb') as indegree_file:
         in_degree_elements = np.load(indegree_file)
 
-    with open('hemibrain_v1.2.1_outdegrees.npy', 'rb') as outdegree_file:
+    with open('../hemibrain_v1.2.1_outdegrees.npy', 'rb') as outdegree_file:
         out_degree_elements = np.load(outdegree_file)
 else:
     print("The chosen option", option, "is not one of the possible options.")
@@ -62,7 +63,7 @@ search_space = {
     # "l": tune.grid_search(l_cardinality_partitions_choice),
     "l": tune.choice(l_cardinality_partitions_choice),
     # "E_k": tune.grid_search(E_k_choice),
-    "E_k": tune.uniform(-50, 50),
+    "E_k": tune.uniform(-100, 50),
     # "phi_U": tune.grid_search(phi_U_probability_choice),
     "phi_U": tune.uniform(0.8, 1.0),
     # "phi_D": tune.grid_search(phi_D_probability_choice),

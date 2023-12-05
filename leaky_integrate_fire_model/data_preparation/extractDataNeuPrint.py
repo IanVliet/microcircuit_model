@@ -11,11 +11,11 @@ option = "hemibrain"  # hemibrain --> "https://www.janelia.org/project-team/flye
 
 if option == "manc":
     client = Client('neuprint.janelia.org', dataset='manc:v1.0', token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Imlhbi52dmxpZXRAZ21haWwuY29tIiwibGV2ZWwiOiJub2F1dGgiLCJpbWFnZS11cmwiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NKMVpoMnRyWGNUOVgxWWF5NE8zRHExUHBaUjdJVXAzQ1dfLUNVTm1PcmVkdz1zOTYtYz9zej01MD9zej01MCIsImV4cCI6MTg3OTAxOTY1N30.GnYkuGJjLyxu7lEWqrL9BkxMwLx-7tIM_n63DyLvR9Q')
-    traced_df, roi_conn_df = fetch_traced_adjacencies('manc-traced-adjacencies-v1.0')
+    traced_df, roi_conn_df = fetch_traced_adjacencies('../manc-traced-adjacencies-v1.0')
 elif option == "hemibrain":
     client = Client('neuprint.janelia.org', dataset='hemibrain:v1.2.1',
                     token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Imlhbi52dmxpZXRAZ21haWwuY29tIiwibGV2ZWwiOiJub2F1dGgiLCJpbWFnZS11cmwiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NKMVpoMnRyWGNUOVgxWWF5NE8zRHExUHBaUjdJVXAzQ1dfLUNVTm1PcmVkdz1zOTYtYz9zej01MD9zej01MCIsImV4cCI6MTg3OTAxOTY1N30.GnYkuGJjLyxu7lEWqrL9BkxMwLx-7tIM_n63DyLvR9Q')
-    traced_df, roi_conn_df = fetch_traced_adjacencies('hemibrain-traced-adjacencies-v1.2.1')
+    traced_df, roi_conn_df = fetch_traced_adjacencies('../hemibrain-traced-adjacencies-v1.2.1')
 else:
     print("The chosen option", option, "is not one of the possible options.")
     exit(1)
@@ -26,16 +26,16 @@ print(outdegrees)
 print(indegrees)
 
 if option == "manc":
-    with open('manc_v1.0_indegrees.npy', 'wb') as indegree_file:
+    with open('../manc_v1.0_indegrees.npy', 'wb') as indegree_file:
         np.save(indegree_file, indegrees)
 
-    with open('manc_v1.0_outdegrees.npy', 'wb') as outdegree_file:
+    with open('../manc_v1.0_outdegrees.npy', 'wb') as outdegree_file:
         np.save(outdegree_file, outdegrees)
 elif option == "hemibrain":
-    with open('hemibrain_v1.2.1_indegrees.npy', 'wb') as indegree_file:
+    with open('../hemibrain_v1.2.1_indegrees.npy', 'wb') as indegree_file:
         np.save(indegree_file, indegrees)
 
-    with open('hemibrain_v1.2.1_outdegrees.npy', 'wb') as outdegree_file:
+    with open('../hemibrain_v1.2.1_outdegrees.npy', 'wb') as outdegree_file:
         np.save(outdegree_file, outdegrees)
 else:
     print("The chosen option", option, "is not one of the possible options.")
