@@ -12,75 +12,23 @@ from scipy.special import comb
 from scipy.stats import binom
 
 
-def poisson_distribution_spike_generation(freq, total_time, time_step_size, cells, connections, rng):
-    # generate external spike trains
-    average_number_of_spikes = ceil(freq * total_time)  # freq * time interval ([kHz]*[ms])
-    average_interval_in_steps = 1/(freq * time_step_size)
-    external_spike_intervals = rng.poisson(average_interval_in_steps,
-                                                 size=(cells, connections, average_number_of_spikes))
-    # uniform_spike_start = np.random.randint(0, round(average_interval_in_steps*2), (number_of_cells, C_ext_connections))
-    # complete_external_spike_intervals = np.dstack((
-    #         uniform_spike_start,
-    #         external_spike_intervals
-    #     ))
-    # external_spike_times = np.cumsum(complete_external_spike_intervals, axis=2)
-    external_spike_times = np.cumsum(external_spike_intervals, axis=2)
-    # minimum_indices = []
-    latest_spikes_smallest_value = np.min(external_spike_times[:, :, -1])
-    while latest_spikes_smallest_value <= total_time / time_step_size:
-        # minimum_indices.append(np.unravel_index(np.argmin(external_spike_times[:, :, -1])
-        # , external_spike_times[:, :, -1].shape))
-        rest_time = total_time - latest_spikes_smallest_value * time_step_size
-        rest_expected_spikes = ceil(freq * rest_time)
-        rest_external_spike_intervals = np.dstack((
-            external_spike_times[:, :, -1],
-            rng.poisson(average_interval_in_steps, size=(cells, connections, rest_expected_spikes))
-        ))
-        rest_external_spike_times = np.cumsum(rest_external_spike_intervals, axis=2)
-        external_spike_times = np.dstack([
-            external_spike_times[:, :, :-1], rest_external_spike_times
-        ])
-        latest_spikes_smallest_value = np.min(external_spike_times[:, :, -1])
-    # for indices in minimum_indices:
-        # print(external_spike_times[indices])
-    return external_spike_times
+def get_neuprint_data(option):
+    if option == "manc":
+        with open('data_preparation/manc_v1.0_indegrees.npy', 'rb') as indegree_file:
+            in_degree_elements = np.load(indegree_file)
 
+        with open('data_preparation/manc_v1.0_outdegrees.npy', 'rb') as outdegree_file:
+            out_degree_elements = np.load(outdegree_file)
+    elif option == "hemibrain":
+        with open('data_preparation/hemibrain_v1.2.1_indegrees.npy', 'rb') as indegree_file:
+            in_degree_elements = np.load(indegree_file)
 
-def uniform_log_spike_generation(freq, total_time, time_step_size, total_time_steps, cells, connections, rng):
-    # generate external spike trains
-    average_number_of_spikes = ceil(freq * total_time)  # freq * time interval ([kHz]*[ms])
-    uniform_for_external_spike_intervals = \
-        rng.uniform(0, 1, (cells, connections, average_number_of_spikes))
-    external_spike_intervals = -np.log(1 - uniform_for_external_spike_intervals) / (freq*time_step_size)
-    external_spike_times = np.cumsum(external_spike_intervals, axis=2, dtype=int)
-    # minimum_indices = []
-    while np.min(external_spike_times[:, :, -1]) <= total_time_steps:
-        # minimum_indices.append(np.unravel_index(np.argmin(external_spike_times[:, :, -1]),
-        #                                         external_spike_times[:, :, -1].shape))
-        rest_time = total_time - np.min(external_spike_times[:, :, -1]) * time_step_size
-        rest_expected_spikes = ceil(freq * rest_time)
-        rest_uniform_for_external_spike_intervals = \
-            rng.uniform(0, 1, (cells, connections, rest_expected_spikes))
-        rest_external_spike_intervals = np.dstack((
-            external_spike_times[:, :, -1],
-            -np.log(1 - rest_uniform_for_external_spike_intervals) / (freq*time_step_size)
-        ))
-        rest_external_spike_times = np.cumsum(rest_external_spike_intervals, axis=2)
-        external_spike_times = np.block([
-            external_spike_times[:, :, :-1], rest_external_spike_times
-        ])
-    # for indices in minimum_indices:
-    #     print(external_spike_times[indices])
-    external_spike_times = np.rint(external_spike_times)
-    return external_spike_times
-
-
-def uniform_probability_spike_generation(freq, total_time, time_step_size, total_time_steps, cells, connections, rng):
-    # generate external spike trains
-    uniform_for_external_spike_intervals = \
-        rng.uniform(0, 1, (cells, connections, total_time_steps))
-    external_spike_steps = uniform_for_external_spike_intervals <= freq*time_step_size
-    return external_spike_steps
+        with open('data_preparation/hemibrain_v1.2.1_outdegrees.npy', 'rb') as outdegree_file:
+            out_degree_elements = np.load(outdegree_file)
+    else:
+        print("The chosen option", option, "is not one of the possible options.")
+        exit(1)
+    return in_degree_elements, out_degree_elements
 
 
 def constant_probability_random_connectivity_matrix(num_cells, probability, rng):
@@ -486,22 +434,6 @@ def produce_connectivity_calculate_cross_entropy(N_total_nodes, int_random_gener
     out_degree_cross_entropy = cross_entropy(out_degree, out_degree_gen_model_extended)
 
     return {"score": linear_combination_cross_entropy(in_degree_cross_entropy, out_degree_cross_entropy, weight=weight)}
-
-
-def get_csv_degree_elements(in_degree_file_name, out_degree_file_name):
-    with open("../degree_data/" + in_degree_file_name) as in_degree_file:
-        csv_reader = csv.reader(in_degree_file, delimiter=';')
-        in_degree_elements = []
-        for row in csv_reader:
-            for value in row:
-                in_degree_elements.append(int(value))
-    with open("../degree_data/" + out_degree_file_name) as out_degree_file:
-        csv_reader = csv.reader(out_degree_file, delimiter=';')
-        out_degree_elements = []
-        for row in csv_reader:
-            for value in row:
-                out_degree_elements.append(int(value))
-    return in_degree_elements, out_degree_elements
 
 
 def plot_degree_counts(connectivity_graph, title="Convolutive model"):

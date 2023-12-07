@@ -5,7 +5,7 @@ import numpy as np
 from math import ceil
 from matplotlib.ticker import PercentFormatter
 import time
-from FunctionsExpandedBrunelNetwork import *
+from connectivity_utils import *
 import scipy.io
 from ray import train, tune
 from ray.train import RunConfig
@@ -24,23 +24,7 @@ fixed_hyperparameters = {
 }
 
 option = fixed_hyperparameters["option"]
-
-if option == "manc":
-    with open('../manc_v1.0_indegrees.npy', 'rb') as indegree_file:
-        in_degree_elements = np.load(indegree_file)
-
-    with open('../manc_v1.0_outdegrees.npy', 'rb') as outdegree_file:
-        out_degree_elements = np.load(outdegree_file)
-elif option == "hemibrain":
-    with open('../hemibrain_v1.2.1_indegrees.npy', 'rb') as indegree_file:
-        in_degree_elements = np.load(indegree_file)
-
-    with open('../hemibrain_v1.2.1_outdegrees.npy', 'rb') as outdegree_file:
-        out_degree_elements = np.load(outdegree_file)
-else:
-    print("The chosen option", option, "is not one of the possible options.")
-    exit(1)
-
+in_degree_elements, out_degree_elements = get_neuprint_data(option)
 
 m_0_nodes_choice = [50, 100]  # equivalent to "m" in the web application?
 rho_probability_choice = [0.1]  # not present in web application? (Noise factor?, Delta?)

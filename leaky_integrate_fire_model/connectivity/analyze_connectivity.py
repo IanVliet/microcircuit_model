@@ -5,7 +5,8 @@ import numpy as np
 from math import ceil
 from matplotlib.ticker import PercentFormatter
 import time
-from FunctionsExpandedBrunelNetwork import *
+from connectivity_utils import *
+from data_preparation.data_prep_utils import *
 import scipy.io
 import os
 
@@ -63,10 +64,10 @@ elif option == "matlab_data":
     pc = 300
     print(option)
 elif option == "manc":
-    with open('../manc_v1.0_indegrees.npy', 'rb') as indegree_file:
+    with open('data_preparation/manc_v1.0_indegrees.npy', 'rb') as indegree_file:
         in_degree_elements = np.load(indegree_file)
 
-    with open('../manc_v1.0_outdegrees.npy', 'rb') as outdegree_file:
+    with open('data_preparation/manc_v1.0_outdegrees.npy', 'rb') as outdegree_file:
         out_degree_elements = np.load(outdegree_file)
     m_0_nodes_choice = 72  # equivalent to "m" in the web application?
     rho_probability_choice = 0.1  # not present in web application? (Noise factor?, Delta?)

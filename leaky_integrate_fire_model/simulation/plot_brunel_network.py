@@ -6,6 +6,7 @@ from matplotlib import lines
 import matplotlib.cm as cm
 import numpy as np
 from math import ceil
+from simulation_utils import *
 from matplotlib.ticker import PercentFormatter
 import time
 import json
@@ -21,47 +22,12 @@ external_spikes_name = "/external_spikes.npy"
 alt_external_spikes_name = "/alt_external_spikes.npy"
 binomial_external_spikes_name = "/binomial_external_spikes.npy"
 config_name = "/config.json"
-try:
-    with open(str_identifier + config_name, "r") as configfile:
-        json_parameters = json.load(configfile)
+parameter_filename = str_identifier + config_name
 
-    int_for_random_generator = json_parameters['int_for_random_generator']
-
-    # network properties
-    number_of_cells = json_parameters['number_of_cells']
-    ratio_excitatory_cells = json_parameters['ratio_excitatory_cells']
-    gamma_ratio_connections = json_parameters['gamma_ratio_connections']
-    epsilon_connection_probability = json_parameters['epsilon_connection_probability']
-    # epsilon_connection_probability = C_random_excitatory_connections/number_excitatory_cells
-
-    # cell properties https://link.springer.com/article/10.1023/A:1008925309027
-    EL = json_parameters['EL']  # mV
-    V_reset = json_parameters['V_reset']  # mV
-    Rm = json_parameters['Rm']  # M ohm (not needed anymore since RI is defined in completeness
-    tau_E = json_parameters['tau_E']  # ms (time constant RC of excitatory neuron)
-    tau_I = json_parameters['tau_I']  # ms (time constant RC of inhibitory neuron)
-    V_th = json_parameters['V_th']  # mV (threshold voltage (=θ))
-    refractory_period = json_parameters['refractory_period']  # ms
-    transmission_delay = json_parameters['transmission_delay']  # ms
-
-    # synaptic properties, and external frequency
-    J_PSP_amplitude_excitatory = json_parameters['J_PSP_amplitude_excitatory']  # mV (PSP is postsynaptic potential amplitude)
-    ratio_external_freq_to_threshold_freq = json_parameters['ratio_external_freq_to_threshold_freq']
-    g_inh = json_parameters['g_inh']  # unitless (so not conductances here) (relative strength of inhibitory connections)
-
-    # simulation properties
-    simulation_time = json_parameters['simulation_time']  # ms
-    time_step = json_parameters['time_step']  # ms
-
-    save_voltage_data_every_ms = json_parameters['save_voltage_data_every_ms']  # ms  (the time between datapoints for the voltage data)
-    number_of_progression_updates = json_parameters['number_of_progression_updates']  # the number of updates given (e.g. if it is 10, it will give 0%, 10%, ... , 90%)
-    number_of_scatter_plot_cells = json_parameters['number_of_scatter_plot_cells']
-except IOError:
-    print("Could not process the file due to IOError")
-    sys.exit(1)
-except KeyError:
-    print("A key was not defined")
-    sys.exit(2)
+int_for_random_generator, number_of_cells, ratio_excitatory_cells, gamma_ratio_connections, \
+        epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay, \
+        J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step, \
+        save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells = get_brunel_parameters(parameter_filename)
 
 number_of_time_steps = round(simulation_time/time_step)
 rng = np.random.default_rng(int_for_random_generator)
