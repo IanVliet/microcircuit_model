@@ -11,7 +11,7 @@ from matplotlib.ticker import PercentFormatter
 import time
 import json
 
-str_identifier = "saved_data_brunel_network/15"
+str_identifier = "saved_data_brunel_network/12"
 str_identifier_figures = str_identifier + "/figures"
 if not os.path.exists(str_identifier_figures):
     os.makedirs(str_identifier_figures)

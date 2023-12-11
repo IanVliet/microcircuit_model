@@ -10,6 +10,7 @@ import scipy.io
 from ray import train, tune
 from ray.train import RunConfig
 from ray.tune.search.optuna import OptunaSearch
+from ray.tune.search.hyperopt import HyperOptSearch
 from functools import partial
 import os
 import json
@@ -19,59 +20,62 @@ fixed_hyperparameters = {
     "N_total_nodes": 10000,
     "int_random_generator": 42,
     "weight": 0.5,
-    # "option": "manc",
-    "option": "hemibrain",
+    "dimensions": [1, 0, 1, 0, 1, 0],
+    "pc": 300,
+    "option": "manc",
+    # "option": "hemibrain",
 }
 
 option = fixed_hyperparameters["option"]
 in_degree_elements, out_degree_elements = get_neuprint_data(option)
 
-m_0_nodes_choice = [50, 100]  # equivalent to "m" in the web application?
-rho_probability_choice = [0.1]  # not present in web application? (Noise factor?, Delta?)
-l_cardinality_partitions_choice = [10]  # Likely L in the web application
-E_k_choice = [-40, -20, 20, 40]  # likely EK in the web application
-phi_U_probability_choice = [0.9, 1.0]  # likely phi_U in the web application
-phi_D_probability_choice = [0, 0.0005]  # likely phi_D in the web application
-delta = [0.1, 0.5, 1.0]
-noise_factor = [0.1, 0.5, 1.0]
-dimensions = [[1, 0, 1, 0, 1, 0]]
-pc = [300]
-
+# m_0_nodes_choice = [50, 100]  # equivalent to "m" in the web application?
+# rho_probability_choice = [0.1]  # not present in web application? (Noise factor?, Delta?)
+# l_cardinality_partitions_choice = [5, 10, 20, 25, 40, 50, 100, 200, 250]  # Likely L in the web application
+l_cardinality_partitions_choice = find_small_divisors(round(fixed_hyperparameters["N_total_nodes"]/2),
+                                                      round(fixed_hyperparameters["N_total_nodes"]/2))  # Likely L in the web application
+# print(l_cardinality_partitions_choice)
+# E_k_choice = [-40, -20, 20, 40]  # likely EK in the web application
+# phi_U_probability_choice = [0.8, 1.0]  # likely phi_U in the web application
+# phi_D_probability_choice = [0, 0.0005]  # likely phi_D in the web application
+# delta = [0.1, 0.5, 1.0]
+# noise_factor = [0.1, 0.5, 1.0]
+# dimensions = [[1, 0, 1, 0, 1, 0]]
+# pc = [300]
+max_m_0 = round(fixed_hyperparameters["N_total_nodes"]/(2*10))
+max_E_k = round(fixed_hyperparameters["N_total_nodes"]/(2*10))  # 500
+max_phi_D = max_E_k/(round(fixed_hyperparameters["N_total_nodes"]/2))
 # web application: https://gtalg.ebrains-italy.eu/connect/
 
 search_space = {
     # "m_0": tune.grid_search(m_0_nodes_choice),
-    "m_0": tune.randint(1, 100),
+    "m_0": tune.randint(1, max_m_0),
     # "rho": tune.grid_search(rho_probability_choice),
-    "rho": tune.choice(rho_probability_choice),
+    # "rho": tune.choice(rho_probability_choice),
+    "rho": tune.uniform(0, 1),
     # "l": tune.grid_search(l_cardinality_partitions_choice),
     "l": tune.choice(l_cardinality_partitions_choice),
     # "E_k": tune.grid_search(E_k_choice),
-    "E_k": tune.uniform(-100, 50),
+    "E_k": tune.uniform(0, max_E_k),
     # "phi_U": tune.grid_search(phi_U_probability_choice),
-    "phi_U": tune.uniform(0.8, 1.0),
+    "phi_U": tune.uniform(0.5, 1.0),
     # "phi_D": tune.grid_search(phi_D_probability_choice),
-    "phi_D": tune.uniform(0, 0.005),
+    "phi_D": tune.uniform(0, max_phi_D),
     # "delta": tune.grid_search(delta),
-    "delta": tune.uniform(0.0, 5.0),
+    "delta": tune.uniform(0.0, fixed_hyperparameters["N_total_nodes"]),
     # "noise_factor": tune.grid_search(noise_factor),
-    "noise_factor": tune.uniform(0.0, 5.0),
-    # "dimensions": tune.grid_search(dimensions),
-    "dimensions": tune.choice(dimensions),
-    # "pc": tune.grid_search(pc)
-    "pc": tune.choice(pc)
-    # "pc": tune.randint(10, 300)
+    "noise_factor": tune.uniform(0.0, fixed_hyperparameters["N_total_nodes"]),
 }
-rng = np.random.default_rng(fixed_hyperparameters["int_random_generator"])
-
 start_fitting = time.time()
 
-tuner = tune.Tuner(partial(produce_connectivity_calculate_cross_entropy, fixed_hyperparameters["N_total_nodes"],
-                           fixed_hyperparameters["int_random_generator"], fixed_hyperparameters["weight"],
+# search_alg = OptunaSearch()
+search_alg = HyperOptSearch()
+
+tuner = tune.Tuner(partial(produce_connectivity_calculate_cross_entropy, fixed_hyperparameters,
                            in_degree_elements, out_degree_elements), param_space=search_space,
                    tune_config=tune.TuneConfig(
-                       num_samples=500,
-                       search_alg=OptunaSearch(),
+                       num_samples=10,
+                       search_alg=search_alg,
                        metric="score",
                        mode="min",
                    ))

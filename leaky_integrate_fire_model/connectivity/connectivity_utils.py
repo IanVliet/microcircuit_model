@@ -31,6 +31,16 @@ def get_neuprint_data(option):
     return in_degree_elements, out_degree_elements
 
 
+def find_small_divisors(number, max_value):
+    divisors = []
+    for divisor in range(1, number + 1):
+        if divisor >= max_value:
+            break
+        if number % divisor == 0:
+            divisors.append(divisor)
+    return divisors
+
+
 def constant_probability_random_connectivity_matrix(num_cells, probability, rng):
     connectivity_matrix = rng.uniform(size=(num_cells, num_cells)) <= probability
     np.fill_diagonal(connectivity_matrix, 0)
@@ -54,6 +64,21 @@ def get_interpolated_degree_distributions(in_degree_values, in_degree_distributi
 
     total_out_degree_distribution = np.interp(n_range_out_degree, out_degree_values, out_degree_distribution)
     # total_out_degree_distribution = total_out_degree_distribution/np.sum(total_out_degree_distribution)
+    return total_in_degree_distribution, total_out_degree_distribution
+
+
+def get_filled_degree_distributions(in_degree_values, in_degree_distribution, out_degree_values,
+                                    out_degree_distribution, last_bin_value_indegree, last_bin_value_outdegree):
+    total_in_degree_distribution = np.zeros(last_bin_value_indegree + 1)
+
+    for value_in, prob_in in zip(in_degree_values, in_degree_distribution):
+        total_in_degree_distribution[value_in] = prob_in
+
+    total_out_degree_distribution = np.zeros(last_bin_value_outdegree + 1)
+
+    for value_out, prob_out in zip(out_degree_values, out_degree_distribution):
+        total_out_degree_distribution[value_out] = prob_out
+
     return total_in_degree_distribution, total_out_degree_distribution
 
 
@@ -380,7 +405,14 @@ def extend_with_zeros(total_length, original_distribution):
     return new_distribution
 
 
-def produce_connectivity_calculate_cross_entropy(N_total_nodes, int_random_generator, weight, in_degree_elements, out_degree_elements, config):
+def produce_connectivity_calculate_cross_entropy(fixed_hyperparameters, in_degree_elements, out_degree_elements, config):
+
+    N_total_nodes = fixed_hyperparameters["N_total_nodes"]
+    int_random_generator = fixed_hyperparameters["int_random_generator"]
+    weight = fixed_hyperparameters["weight"]
+    dimensions = fixed_hyperparameters["dimensions"]
+    pc = fixed_hyperparameters["pc"]
+
     rng = np.random.default_rng(int_random_generator)
     m_0_nodes = config["m_0"]
     rho_probability = config["rho"]  # not present in web application? (Noise factor?, Delta?)
@@ -390,8 +422,6 @@ def produce_connectivity_calculate_cross_entropy(N_total_nodes, int_random_gener
     phi_D_probability = config["phi_D"]  # likely phi_D in the web application
     delta = config["delta"]
     noise_factor = config["noise_factor"]
-    dimensions = config["dimensions"]
-    pc = config["pc"]
 
     B = convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions,
                               N_total_nodes, E_k, phi_U_probability,
@@ -403,9 +433,9 @@ def produce_connectivity_calculate_cross_entropy(N_total_nodes, int_random_gener
         get_degree_distributions(in_degree_elements, out_degree_elements)
 
     in_degree, out_degree = \
-        get_interpolated_degree_distributions(in_degree_values, in_degree_distribution, out_degree_values,
-                                              out_degree_distribution, np.max(in_degree_elements),
-                                              np.max(out_degree_elements))
+        get_filled_degree_distributions(in_degree_values, in_degree_distribution, out_degree_values,
+                                        out_degree_distribution, np.max(in_degree_elements),
+                                        np.max(out_degree_elements))
 
     # degree distributions of model
     in_degrees, in_degree_counts = np.unique(np.sum(B, axis=1), return_counts=True)
@@ -417,10 +447,11 @@ def produce_connectivity_calculate_cross_entropy(N_total_nodes, int_random_gener
         get_degree_distributions(in_degree_elements_model, out_degree_elements_model)
 
     in_degree_gen_model, out_degree_gen_model = \
-        get_interpolated_degree_distributions(in_degree_values_model, in_degree_distribution_model,
-                                              out_degree_values_model,
-                                              out_degree_distribution_model, np.max(in_degree_elements_model),
-                                              np.max(out_degree_elements_model))
+        get_filled_degree_distributions(in_degree_values_model, in_degree_distribution_model,
+                                        out_degree_values_model,
+                                        out_degree_distribution_model, np.max(in_degree_elements_model),
+                                        np.max(out_degree_elements_model))
+
     if len(in_degree) > len(in_degree_gen_model):
         in_degree_gen_model_extended = extend_with_zeros(len(in_degree), in_degree_gen_model) + 1e-15
     else:
