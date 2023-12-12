@@ -391,6 +391,14 @@ def get_partition(nodes, l_cardinality, M_partitions, rng):
     return partitioned_graph
 
 
+def custom_trial_name_creator(trial):
+    return f"conv_model{trial.trial_id}"
+
+
+def custom_file_name_creator(trial):
+    return f"conv_model{trial.trial_id}"
+
+
 def cross_entropy(data_distribution, model_distribution):
     return -np.sum(data_distribution*np.log2(model_distribution[:len(data_distribution)]))
 

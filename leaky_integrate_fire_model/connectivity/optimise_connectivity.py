@@ -74,10 +74,12 @@ search_alg = HyperOptSearch()
 tuner = tune.Tuner(partial(produce_connectivity_calculate_cross_entropy, fixed_hyperparameters,
                            in_degree_elements, out_degree_elements), param_space=search_space,
                    tune_config=tune.TuneConfig(
+                       trial_name_creator=custom_trial_name_creator,
                        num_samples=10,
                        search_alg=search_alg,
                        metric="score",
                        mode="min",
+                       trial_dirname_creator=custom_file_name_creator
                    ))
 
 results = tuner.fit()
