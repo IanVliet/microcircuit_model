@@ -347,6 +347,53 @@ def convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions, 
     return B
 
 
+def simple_ba_graph(total_nodes, m_0_nodes, m, rng, a_arbitrary_constant=1000):
+    if m > m_0_nodes:
+        exit(1)
+    er_graph = constant_probability_random_connectivity_matrix(m_0_nodes, 1, rng)
+    out_degrees_er_graph = np.sum(er_graph, axis=0)
+    in_degrees_er_graph = np.sum(er_graph, axis=1)
+    total_out_degrees = np.zeros(total_nodes)
+    total_out_degrees[:m_0_nodes] = out_degrees_er_graph
+    total_in_degrees = np.zeros(total_nodes)
+    total_in_degrees[:m_0_nodes] = in_degrees_er_graph
+
+    # possible_targets = []
+    # for target, out_degree in enumerate(out_degrees_er_graph):
+    #     for out_degree_counter in range(out_degree + a_arbitrary_constant):
+    #         possible_targets.append(target)
+
+    targets = np.arange(m_0_nodes, dtype=int)
+    total_graph = np.block([
+        [er_graph, np.zeros((m_0_nodes, total_nodes - m_0_nodes))],
+        [np.zeros((total_nodes - m_0_nodes, m_0_nodes)), np.zeros((total_nodes - m_0_nodes, total_nodes - m_0_nodes))],
+    ])
+    num_connections = m
+    node_counter = m_0_nodes
+    while node_counter < total_nodes:
+        if node_counter % 5000 == 0:
+            print("Node counter: " + str(node_counter) + " of " + str(total_nodes))
+        num_incoming_connections = len(targets)
+        total_out_degrees[targets] += 1
+        total_in_degrees[node_counter] += num_incoming_connections
+        total_graph[node_counter, targets] = 1
+        # the probability for a node to be chosen as a target is related to the outdegree + constant a
+        ratio_target = total_out_degrees[:node_counter] + a_arbitrary_constant
+        ratio_target = ratio_target / np.sum(ratio_target)
+        bins = np.concatenate((np.array([0]), np.cumsum(ratio_target)))
+
+        targets = np.zeros(num_connections, dtype=int) - 1
+        connection_counter = 0
+        while connection_counter < num_connections:
+            random_ratio_target = rng.random()
+            target_node = np.digitize(random_ratio_target, bins) - 1
+            if target_node not in targets:
+                targets[connection_counter] = target_node
+                connection_counter += 1
+        node_counter += 1
+    return total_graph
+
+
 # NEEDS TO BE FIXED STILL!!! --> seems impossible to calculate
 def convolutive_probabilities(in_degree_distribution, out_degree_distribution, N_total_nodes,
                               l_cardinality_partitions, p_probability, phi_U_probability, phi_D_probability):
@@ -436,7 +483,19 @@ def produce_connectivity_calculate_cross_entropy(fixed_hyperparameters, in_degre
                               phi_D_probability, rng, in_degree_elements, out_degree_elements, dimensions,
                               delta=delta, noise_factor=noise_factor, spatial=True, pc=pc)
 
-    # degree distributions of data
+    # degree distributions of model
+    in_degrees, in_degree_counts = np.unique(np.sum(B, axis=1), return_counts=True)
+    out_degrees, out_degree_counts = np.unique(np.sum(B, axis=0), return_counts=True)
+    in_degree_elements_model = np.repeat(in_degrees, in_degree_counts)
+    out_degree_elements_model = np.repeat(out_degrees, out_degree_counts)
+
+    total_cross_entropy = elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model,
+                                                        in_degree_elements, out_degree_elements, weight)
+
+    return {"score": total_cross_entropy}
+
+
+def elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model, in_degree_elements, out_degree_elements, weight):
     in_degree_values, in_degree_distribution, out_degree_values, out_degree_distribution = \
         get_degree_distributions(in_degree_elements, out_degree_elements)
 
@@ -444,12 +503,6 @@ def produce_connectivity_calculate_cross_entropy(fixed_hyperparameters, in_degre
         get_filled_degree_distributions(in_degree_values, in_degree_distribution, out_degree_values,
                                         out_degree_distribution, np.max(in_degree_elements),
                                         np.max(out_degree_elements))
-
-    # degree distributions of model
-    in_degrees, in_degree_counts = np.unique(np.sum(B, axis=1), return_counts=True)
-    out_degrees, out_degree_counts = np.unique(np.sum(B, axis=0), return_counts=True)
-    in_degree_elements_model = np.repeat(in_degrees, in_degree_counts)
-    out_degree_elements_model = np.repeat(out_degrees, out_degree_counts)
 
     in_degree_values_model, in_degree_distribution_model, out_degree_values_model, out_degree_distribution_model = \
         get_degree_distributions(in_degree_elements_model, out_degree_elements_model)
@@ -472,7 +525,82 @@ def produce_connectivity_calculate_cross_entropy(fixed_hyperparameters, in_degre
     in_degree_cross_entropy = cross_entropy(in_degree, in_degree_gen_model_extended)
     out_degree_cross_entropy = cross_entropy(out_degree, out_degree_gen_model_extended)
 
-    return {"score": linear_combination_cross_entropy(in_degree_cross_entropy, out_degree_cross_entropy, weight=weight)}
+    return linear_combination_cross_entropy(in_degree_cross_entropy, out_degree_cross_entropy, weight=weight)
+
+
+def get_degree_elements(connectivity_matrix):
+    in_degrees, in_degree_counts = np.unique(np.sum(connectivity_matrix, axis=1), return_counts=True)
+    out_degrees, out_degree_counts = np.unique(np.sum(connectivity_matrix, axis=0), return_counts=True)
+    in_degree_elements_model = np.repeat(in_degrees, in_degree_counts)
+    out_degree_elements_model = np.repeat(out_degrees, out_degree_counts)
+    return in_degree_elements_model, out_degree_elements_model
+
+
+def score_and_plot(connectivity_matrix, name_type, in_degree_elements, out_degree_elements, option, weight, log_type=True, type_values=None):
+    in_degree_elements_matlab_sim = out_degree_elements_matlab_sim = [0]
+    if isinstance(connectivity_matrix, np.ndarray):
+        in_degree_elements_model, out_degree_elements_model = get_degree_elements(connectivity_matrix)
+        figure, ax = hist_plot_data_model_degree_distributions(option, in_degree_elements, in_degree_elements_model,
+                                                               in_degree_elements_matlab_sim, out_degree_elements,
+                                                               out_degree_elements_model,
+                                                               out_degree_elements_matlab_sim, log_type=log_type,
+                                                               model_data_label=name_type)
+
+        score = elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model, in_degree_elements,
+                                              out_degree_elements, weight)
+        print(name_type + ":", score)
+        return figure, score
+    elif isinstance(connectivity_matrix, list) and all(isinstance(matrix, np.ndarray) for matrix in connectivity_matrix):
+        if len(connectivity_matrix) == 1:
+            matrix = connectivity_matrix[0]
+            in_degree_elements_model, out_degree_elements_model = get_degree_elements(matrix)
+            figure, ax = hist_plot_data_model_degree_distributions(
+                option, in_degree_elements, in_degree_elements_model, in_degree_elements_matlab_sim,
+                out_degree_elements,
+                out_degree_elements_model, out_degree_elements_matlab_sim, log_type=log_type, model_data_label=name_type
+            )
+
+            score = elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model,
+                                                  in_degree_elements,
+                                                  out_degree_elements, weight)
+            print(name_type + ":", score)
+            return figure, score
+        else:
+            if type_values is not None and (len(type_values) == len(connectivity_matrix)):
+                zeroth_label = name_type + ": " + str(type_values[0])
+                in_degree_elements_model, out_degree_elements_model = get_degree_elements(connectivity_matrix[0])
+                figure, ax = hist_plot_data_model_degree_distributions(
+                    option, in_degree_elements, in_degree_elements_model, in_degree_elements_matlab_sim,
+                    out_degree_elements,
+                    out_degree_elements_model, out_degree_elements_matlab_sim, log_type=log_type, model_data_label=zeroth_label
+                )
+                score = elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model,
+                                                      in_degree_elements,
+                                                      out_degree_elements, weight)
+                scores = {type_values[0]: score}
+                print(name_type + ":", score)
+                for label, matrix in enumerate(connectivity_matrix[1:], 1):
+                    type_label = name_type + ": " + str(type_values[label])
+                    in_degree_elements_model, out_degree_elements_model = get_degree_elements(matrix)
+                    hist_additive_plot_degree_distributions(
+                        in_degree_elements_model, out_degree_elements_model, figure, ax, type_label, log_type=log_type
+                    )
+
+                    score = elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model, in_degree_elements,
+                                                          out_degree_elements, weight)
+                    scores[type_values[label]] = score
+                    print(name_type + ":", score)
+                return figure, scores
+            else:
+                raise ValueError("The number of values indicating the subtype is not equal to the number of connectivity matrices")
+    else:
+        raise TypeError("connectivity_matrix should either be a np.ndarray or a list of np.ndarray ")
+
+
+def get_bin_edges(list_elements, binsize=20):
+    max_value = np.max(np.concatenate(list_elements))
+    bin_edges = range(0, max_value + binsize, binsize)
+    return bin_edges
 
 
 def plot_degree_counts(connectivity_graph, title="Convolutive model"):
@@ -496,38 +624,55 @@ def plot_degree_counts(connectivity_graph, title="Convolutive model"):
 
 def hist_plot_data_model_degree_distributions(option, in_degree_elements, in_degree_elements_model,
                                               in_degree_elements_matlab_sim, out_degree_elements,
-                                              out_degree_elements_model, out_degree_elements_matlab_sim):
+                                              out_degree_elements_model, out_degree_elements_matlab_sim, log_type=False, model_data_label='sim'):
     fig, ax = plt.subplots(1, 2)
-    num_bins = len(np.unique(in_degree_elements))
+
     binsize = 20
-    max_value_indegree = np.max(np.concatenate([in_degree_elements, in_degree_elements_model, in_degree_elements_matlab_sim]))
-    max_value_outdegree = np.max(np.concatenate([out_degree_elements, out_degree_elements_model, out_degree_elements_matlab_sim]))
-    bin_edges_indegree = range(0, max_value_indegree + binsize, binsize)
-    bin_edges_outdegree = range(0, max_value_outdegree + binsize, binsize)
+    bin_edges_indegree = get_bin_edges([in_degree_elements, in_degree_elements_model, in_degree_elements_matlab_sim], binsize=binsize)
+    bin_edges_outdegree = get_bin_edges([out_degree_elements, out_degree_elements_model, out_degree_elements_matlab_sim], binsize=binsize)
     density_type = True
-    # if num_bins > 100:
-    #     num_bins = 100
+
     ax[0].hist(in_degree_elements, label='data', alpha=1, bins=bin_edges_indegree, density=density_type, edgecolor='black',
-               linewidth=1)
-    ax[0].hist(in_degree_elements_model, label='sim', alpha=0.8, bins=bin_edges_indegree, density=density_type, edgecolor='red',
-               linewidth=2, histtype='step')
+               linewidth=1, log=log_type)
+    ax[0].hist(in_degree_elements_model, label=model_data_label, alpha=0.8, bins=bin_edges_indegree, density=density_type,
+               linewidth=2, histtype='step', log=log_type)
     if option == "matlab_data":
         ax[0].hist(in_degree_elements_matlab_sim, label='matlab sim', alpha=0.8, bins=bin_edges_indegree, density=density_type,
-                   edgecolor='green', linewidth=2, histtype='step')
+                   edgecolor='green', linewidth=2, histtype='step', log=log_type)
     ax[0].set_xlabel("indegree")
+
     ax[0].set_ylabel("probability")
     ax[1].hist(out_degree_elements, label='data', alpha=1, bins=bin_edges_outdegree, density=density_type, edgecolor='black',
-               linewidth=1)
-    ax[1].hist(out_degree_elements_model, label='sim', alpha=0.8, bins=bin_edges_outdegree, density=density_type, edgecolor='red',
-               linewidth=2, histtype='step')
+               linewidth=1, log=log_type)
+    ax[1].hist(out_degree_elements_model, label=model_data_label, alpha=0.8, bins=bin_edges_outdegree, density=density_type,
+               linewidth=2, histtype='step', log=log_type)
     if option == "matlab_data":
         ax[1].hist(out_degree_elements_matlab_sim, label='matlab sim', alpha=0.8, bins=bin_edges_outdegree, density=density_type,
-                   edgecolor='green', linewidth=2, histtype='step')
+                   edgecolor='green', linewidth=2, histtype='step', log=log_type)
     ax[1].set_xlabel("outdegree")
+    if log_type:
+        ax[0].set_xscale("log")
+        ax[1].set_xscale("log")
     ax[1].set_ylabel("probability")
-    ax[0].ticklabel_format(axis='y', scilimits=(-2, 2))
-    ax[1].ticklabel_format(axis='y', scilimits=(-2, 2))
+    if not log_type:
+        ax[0].ticklabel_format(axis='y', scilimits=(-2, 2))
+        ax[1].ticklabel_format(axis='y', scilimits=(-2, 2))
     fig.tight_layout()
+    ax[0].legend()
+    ax[1].legend()
+    return fig, ax
+
+
+def hist_additive_plot_degree_distributions(in_degree_elements_model, out_degree_elements_model, fig, ax, label, log_type=False):
+    binsize = 20
+    bin_edges_indegree = get_bin_edges([in_degree_elements_model], binsize=binsize)
+    bin_edges_outdegree = get_bin_edges([out_degree_elements_model], binsize=binsize)
+    density_type = True
+
+    ax[0].hist(in_degree_elements_model, label=label, alpha=0.8, bins=bin_edges_indegree, density=density_type,
+               linewidth=2, histtype='step', log=log_type)
+    ax[1].hist(out_degree_elements_model, label=label, alpha=0.8, bins=bin_edges_outdegree, density=density_type,
+               linewidth=2, histtype='step', log=log_type)
     ax[0].legend()
     ax[1].legend()
     return fig
@@ -555,3 +700,10 @@ def step_plot_data_model_degree_distributions(option, in_degree, in_degree_gen_m
     ax[1].set_ylabel("probability")
     ax[1].legend()
     fig.tight_layout()
+
+
+def save_png_pdf(figure, directory, filename):
+    png_extension = ".png"
+    pdf_extension = ".pdf"
+    figure.savefig(directory + filename + png_extension)
+    figure.savefig(directory + filename + pdf_extension)

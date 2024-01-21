@@ -10,6 +10,8 @@ from collections import Counter
 import networkx as nx
 from scipy.special import comb
 from scipy.stats import binom
+from scipy.signal import correlate
+from scipy.signal import correlation_lags
 import json
 import sys
 
@@ -144,3 +146,38 @@ def get_brunel_parameters(parameter_filename):
         epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay, \
         J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step, \
         save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells
+
+
+def align_arrays(arrays):
+    if len(arrays) <= 0:
+        print("No arrays were given")
+        sys.exit(1)
+    elif len(arrays) == 1:
+        print("Only a single array was given")
+        return arrays
+    else:
+        ref_array = arrays[0]
+        aligned_arrays = [ref_array]
+        time_lags = np.zeros(len(arrays), dtype=int)
+        for index, array in enumerate(arrays[1:]):
+            corr = correlate(ref_array, array, mode='full')
+            fig, ax = plt.subplots()
+            ax.bar(np.arange(len(corr)), corr)
+            lags = correlation_lags(ref_array.size, array.size, mode="full")
+            lag = lags[np.argmax(corr)]
+            time_lags[index + 1] = lag
+            aligned_arrays.append(shift_array(array, lag))
+        return aligned_arrays, time_lags
+
+
+def shift_array(array, shift, fill_value=np.NaN):
+    result = np.empty_like(array)
+    if shift > 0:
+        result[:shift] = fill_value
+        result[shift:] = array[:-shift]
+    elif shift < 0:
+        result[shift:] = fill_value
+        result[:shift] = array[-shift:]
+    else:
+        result[:] = array
+    return result

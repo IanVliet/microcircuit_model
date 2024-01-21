@@ -11,7 +11,7 @@ from matplotlib.ticker import PercentFormatter
 import time
 import json
 
-str_identifier = "saved_data_brunel_network/12"
+str_identifier = "saved_data_brunel_network/30"
 str_identifier_figures = str_identifier + "/figures"
 if not os.path.exists(str_identifier_figures):
     os.makedirs(str_identifier_figures)
@@ -76,12 +76,17 @@ if os.path.exists(str_identifier + spikes_name):
     fig_instant_freq.savefig(str_identifier_figures + plot_total_spikes_name + pdf_extension)
 
     # get frequency spectrum of total_spikes
-    print("Average firing rate: " + str(np.sum(total_spikes)*1e3/simulation_time/number_of_cells) + " Hz")
+    avg_firing_rate = np.sum(total_spikes)*1e3/simulation_time/number_of_cells
+    print("Average firing rate: " + str(avg_firing_rate) + " Hz")
+    avg_firing_rate_dict = {"avg_firing_rate": avg_firing_rate}
+    with open(str_identifier + "/avg_firing_rate.json", "w") as avg_firing_rate_file:
+        json.dump(avg_firing_rate_dict, avg_firing_rate_file)
     plot_freq_spectrum_name = "/freq_spectrum"
     fig_freq_spectrum, ax_freq_spectrum = plt.subplots()
     total_spikes_fft = np.fft.fft(total_spikes)
     total_spikes_power_spec = np.abs(total_spikes_fft)**2
     frequencies = np.fft.fftfreq(time_array.shape[-1], d=time_step)
+    print(frequencies[1:len(total_spikes_power_spec)//2][np.argmax(total_spikes_power_spec[1:len(total_spikes_power_spec)//2])])
     ax_freq_spectrum.plot(frequencies, total_spikes_fft.real, label='real')
     ax_freq_spectrum.plot(frequencies, total_spikes_fft.imag, label='imag')
     ax_freq_spectrum.plot(frequencies, total_spikes_power_spec, label='power')

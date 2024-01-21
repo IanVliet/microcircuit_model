@@ -13,7 +13,7 @@ import os
 import json
 import sys
 
-str_identifier = "saved_data_optimised_connectivity/26"
+str_identifier = "saved_data_optimised_connectivity/25"  # 26
 fixed_hyperparameters_name = "/fixed_hyperparameters.json"
 try:
     with open(str_identifier + fixed_hyperparameters_name, "r") as configfile:
@@ -101,10 +101,10 @@ for index_result, result in top3_results.iterrows():
         "pc": pc,
     }
     print(config)
-    figure = hist_plot_data_model_degree_distributions(option, in_degree_elements, in_degree_elements_model,
+    figure, ax = hist_plot_data_model_degree_distributions(option, in_degree_elements, in_degree_elements_model,
                                                        in_degree_elements_matlab_sim, out_degree_elements,
                                                        out_degree_elements_model,
-                                                       out_degree_elements_matlab_sim)
+                                                       out_degree_elements_matlab_sim, log_type=True)
     figure.savefig(data_directory + hist_degree_distributions_name + png_extension)
     figure.savefig(data_directory + hist_degree_distributions_name + pdf_extension)
 
@@ -114,35 +114,38 @@ for index_result, result in top3_results.iterrows():
     figure.savefig(data_directory + hist_degree_distributions_name + detailed_name + pdf_extension)
 
     # degree distributions of data
-    in_degree_values, in_degree_distribution, out_degree_values, out_degree_distribution = \
-        get_degree_distributions(in_degree_elements, out_degree_elements)
-
-    in_degree, out_degree = \
-        get_filled_degree_distributions(in_degree_values, in_degree_distribution, out_degree_values,
-                                        out_degree_distribution, np.max(in_degree_elements),
-                                        np.max(out_degree_elements))
+    # in_degree_values, in_degree_distribution, out_degree_values, out_degree_distribution = \
+    #     get_degree_distributions(in_degree_elements, out_degree_elements)
+    #
+    # in_degree, out_degree = \
+    #     get_filled_degree_distributions(in_degree_values, in_degree_distribution, out_degree_values,
+    #                                     out_degree_distribution, np.max(in_degree_elements),
+    #                                     np.max(out_degree_elements))
     # degree distributions of model
 
-    in_degree_values_model, in_degree_distribution_model, out_degree_values_model, out_degree_distribution_model = \
-        get_degree_distributions(in_degree_elements_model, out_degree_elements_model)
+    # in_degree_values_model, in_degree_distribution_model, out_degree_values_model, out_degree_distribution_model = \
+    #     get_degree_distributions(in_degree_elements_model, out_degree_elements_model)
+    #
+    # in_degree_gen_model, out_degree_gen_model = \
+    #     get_filled_degree_distributions(in_degree_values_model, in_degree_distribution_model,
+    #                                     out_degree_values_model,
+    #                                     out_degree_distribution_model, np.max(in_degree_elements_model),
+    #                                     np.max(out_degree_elements_model))
+    # if len(in_degree) > len(in_degree_gen_model):
+    #     in_degree_gen_model_extended = extend_with_zeros(len(in_degree), in_degree_gen_model) + 1e-15
+    # else:
+    #     in_degree_gen_model_extended = in_degree_gen_model + 1e-15
+    # if len(out_degree) > len(out_degree_gen_model):
+    #     out_degree_gen_model_extended = extend_with_zeros(len(out_degree), out_degree_gen_model) + 1e-15
+    # else:
+    #     out_degree_gen_model_extended = out_degree_gen_model + 1e-15
+    #
+    # in_degree_cross_entropy = cross_entropy(in_degree, in_degree_gen_model_extended)
+    # out_degree_cross_entropy = cross_entropy(out_degree, out_degree_gen_model_extended)
+    recreated_score = elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model, in_degree_elements,
+                                                    out_degree_elements, weight)
 
-    in_degree_gen_model, out_degree_gen_model = \
-        get_filled_degree_distributions(in_degree_values_model, in_degree_distribution_model,
-                                        out_degree_values_model,
-                                        out_degree_distribution_model, np.max(in_degree_elements_model),
-                                        np.max(out_degree_elements_model))
-    if len(in_degree) > len(in_degree_gen_model):
-        in_degree_gen_model_extended = extend_with_zeros(len(in_degree), in_degree_gen_model) + 1e-15
-    else:
-        in_degree_gen_model_extended = in_degree_gen_model + 1e-15
-    if len(out_degree) > len(out_degree_gen_model):
-        out_degree_gen_model_extended = extend_with_zeros(len(out_degree), out_degree_gen_model) + 1e-15
-    else:
-        out_degree_gen_model_extended = out_degree_gen_model + 1e-15
-
-    in_degree_cross_entropy = cross_entropy(in_degree, in_degree_gen_model_extended)
-    out_degree_cross_entropy = cross_entropy(out_degree, out_degree_gen_model_extended)
-    recreated_score = linear_combination_cross_entropy(in_degree_cross_entropy, out_degree_cross_entropy, weight=weight)
+    # recreated_score = linear_combination_cross_entropy(in_degree_cross_entropy, out_degree_cross_entropy, weight=weight)
     print("original score:", result["score"])
     print("recreated score:", recreated_score)
     scores = {
