@@ -10,4 +10,8 @@ from data_prep_utils import *
 # option = "manc"  # manc --> "https://www.janelia.org/project-team/flyem/manc-connectome"
 option = "hemibrain"  # hemibrain --> "https://www.janelia.org/project-team/flyem/hemibrain"
 
-extract_neuprint_data(option)
+# Look at the quickstart guide on neuprint to get your own token:
+# https://connectome-neuprint.github.io/neuprint-python/docs/quickstart.html
+token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Imlhbi52dmxpZXRAZ21haWwuY29tIiwibGV2ZWwiOiJub2F1dGgiLCJpbWFnZS11cmwiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NKMVpoMnRyWGNUOVgxWWF5NE8zRHExUHBaUjdJVXAzQ1dfLUNVTm1PcmVkdz1zOTYtYz9zej01MD9zej01MCIsImV4cCI6MTg3OTAxOTY1N30.GnYkuGJjLyxu7lEWqrL9BkxMwLx-7tIM_n63DyLvR9Q'
+
+extract_neuprint_data(option, token)

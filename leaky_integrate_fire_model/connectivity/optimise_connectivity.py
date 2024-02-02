@@ -17,13 +17,14 @@ import json
 
 
 fixed_hyperparameters = {
-    "N_total_nodes": 10000,
+    "N_total_nodes": 25000,
     "int_random_generator": 1,
     "weight": 0.5,
     "dimensions": [1, 0, 1, 0, 1, 0],
     "pc": 300,
-    "option": "manc",
-    # "option": "hemibrain",
+    # "option": "manc",
+    "option": "hemibrain",
+    "number_of_seeds": 10,
 }
 
 option = fixed_hyperparameters["option"]
@@ -43,8 +44,8 @@ l_cardinality_partitions_choice = find_small_divisors(round(fixed_hyperparameter
 # dimensions = [[1, 0, 1, 0, 1, 0]]
 # pc = [300]
 
-# max_m_0 = round(fixed_hyperparameters["N_total_nodes"]/(2*10))
-max_m_0 = round(fixed_hyperparameters["N_total_nodes"]/2)
+max_m_0 = round(fixed_hyperparameters["N_total_nodes"]/(2*10))
+# max_m_0 = round(fixed_hyperparameters["N_total_nodes"]/2)
 max_E_k = round(fixed_hyperparameters["N_total_nodes"]/(2*10))  # 500
 max_phi_D = max_E_k/(round(fixed_hyperparameters["N_total_nodes"]/2))
 # web application: https://gtalg.ebrains-italy.eu/connect/
@@ -77,7 +78,7 @@ tuner = tune.Tuner(partial(produce_connectivity_calculate_cross_entropy, fixed_h
                            in_degree_elements, out_degree_elements), param_space=search_space,
                    tune_config=tune.TuneConfig(
                        trial_name_creator=custom_trial_name_creator,
-                       num_samples=100,
+                       num_samples=1000,
                        search_alg=search_alg,
                        metric="score",
                        mode="min",

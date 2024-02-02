@@ -9,40 +9,63 @@ import matplotlib.pyplot as plt
 import scipy.io
 
 
-def extract_neuprint_data(option):
+def data_downloaded(option, data_location=None):
+    if data_location is not None:
+        data_directory = data_location + "/"
+        if not os.path.exists(data_location):
+            os.makedirs(data_location)
+    else:
+        data_directory = ""
+    if option == "manc":
+        indegree = os.path.isfile(data_directory + 'manc_v1.0_indegrees.npy')
+        outdegree = os.path.isfile(data_directory + 'manc_v1.0_outdegrees.npy')
+
+    elif option == "hemibrain":
+        indegree = os.path.isfile(data_directory + 'hemibrain_v1.2.1_indegrees.npy')
+        outdegree = os.path.isfile(data_directory + 'hemibrain_v1.2.1_outdegrees.npy')
+    else:
+        print("The chosen option", option, "is not one of the possible options.")
+        exit(1)
+    return indegree and outdegree
+
+
+def extract_neuprint_data(option, token, data_location=None):
     """
-    Extracts raw data from the neuprint website, and saves it as in-degree and out-degree data. (.npy format)
+    Extracts raw data from the neuprint website, and saves it as indegree and outdegree data. (.npy format)
     neuprint documentation: https://connectome-neuprint.github.io/neuprint-python/docs/notebooks/QueryTutorial.html
     manc --> "https://www.janelia.org/project-team/flyem/manc-connectome"
     hemibrain --> "https://www.janelia.org/project-team/flyem/hemibrain"
     """
     if option == "manc":
-        client = Client('neuprint.janelia.org', dataset='manc:v1.0', token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Imlhbi52dmxpZXRAZ21haWwuY29tIiwibGV2ZWwiOiJub2F1dGgiLCJpbWFnZS11cmwiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NKMVpoMnRyWGNUOVgxWWF5NE8zRHExUHBaUjdJVXAzQ1dfLUNVTm1PcmVkdz1zOTYtYz9zej01MD9zej01MCIsImV4cCI6MTg3OTAxOTY1N30.GnYkuGJjLyxu7lEWqrL9BkxMwLx-7tIM_n63DyLvR9Q')
+        client = Client('neuprint.janelia.org', dataset='manc:v1.0', token=token)
         traced_df, roi_conn_df = fetch_traced_adjacencies('../../manc-traced-adjacencies-v1.0')
     elif option == "hemibrain":
         client = Client('neuprint.janelia.org', dataset='hemibrain:v1.2.1',
-                        token='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Imlhbi52dmxpZXRAZ21haWwuY29tIiwibGV2ZWwiOiJub2F1dGgiLCJpbWFnZS11cmwiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NKMVpoMnRyWGNUOVgxWWF5NE8zRHExUHBaUjdJVXAzQ1dfLUNVTm1PcmVkdz1zOTYtYz9zej01MD9zej01MCIsImV4cCI6MTg3OTAxOTY1N30.GnYkuGJjLyxu7lEWqrL9BkxMwLx-7tIM_n63DyLvR9Q')
+                        token=token)
         traced_df, roi_conn_df = fetch_traced_adjacencies('../../hemibrain-traced-adjacencies-v1.2.1')
     else:
-        print("The chosen option", option, "is not one of the possible options.")
+        print("The chosen option ", option, "is not one of the possible options.")
         exit(1)
     bodyIds_pre, indices_pre, outdegrees = np.unique(roi_conn_df.bodyId_pre, return_index=True, return_counts=True)
     bodyIds_post, indices_post, indegrees = np.unique(roi_conn_df.bodyId_post, return_index=True, return_counts=True)
 
     print(outdegrees)
     print(indegrees)
-
+    if data_location is not None:
+        data_directory = data_location + "/"
+    else:
+        data_directory = ""
     if option == "manc":
-        with open('manc_v1.0_indegrees.npy', 'wb') as indegree_file:
+        with open(data_directory + 'manc_v1.0_indegrees.npy', 'wb') as indegree_file:
             np.save(indegree_file, indegrees)
 
-        with open('manc_v1.0_outdegrees.npy', 'wb') as outdegree_file:
+        with open(data_directory + 'manc_v1.0_outdegrees.npy', 'wb') as outdegree_file:
             np.save(outdegree_file, outdegrees)
     elif option == "hemibrain":
-        with open('hemibrain_v1.2.1_indegrees.npy', 'wb') as indegree_file:
+        with open(data_directory + 'hemibrain_v1.2.1_indegrees.npy', 'wb') as indegree_file:
             np.save(indegree_file, indegrees)
 
-        with open('hemibrain_v1.2.1_outdegrees.npy', 'wb') as outdegree_file:
+        with open(data_directory + 'hemibrain_v1.2.1_outdegrees.npy', 'wb') as outdegree_file:
             np.save(outdegree_file, outdegrees)
     else:
         print("The chosen option", option, "is not one of the possible options.")
