@@ -7,6 +7,7 @@ from neuprint import merge_neuron_properties
 from leaky_integrate_fire_model.connectivity.connectivity_utils import *
 import matplotlib.pyplot as plt
 import scipy.io
+import os
 
 
 def data_downloaded(option, data_location=None):
