@@ -14,9 +14,9 @@ import json
 import sys
 import networkx as nx
 
-# option = "manc"
-option = "hemibrain"
-N_total_nodes = 10000
+option = "manc"
+# option = "hemibrain"
+N_total_nodes = 23000
 weight = 0.5
 epsilon_connection_probabilities = [0.01, 0.05, 0.1]
 m_values = [50, 100, 150, 200]
@@ -34,40 +34,42 @@ str_identifier = folder_name + "/" + str(folder_identifier)
 os.makedirs(str_identifier)
 
 
-in_degree_elements, out_degree_elements = get_neuprint_data(option)
+in_degree_elements, out_degree_elements = get_degree_data(option)
 
 rng = np.random.default_rng(int_for_random_generator)
 
-connectivity_matrix_er = [constant_probability_random_connectivity_matrix(N_total_nodes, epsilon_connection_probability, rng) for epsilon_connection_probability in epsilon_connection_probabilities]
+# connectivity_matrix_er = [constant_probability_random_connectivity_matrix(N_total_nodes, epsilon_connection_probability, rng) for epsilon_connection_probability in epsilon_connection_probabilities]
+#
+# connectivity_matrix_tri = np.tril(np.ones((N_total_nodes, N_total_nodes), dtype=int), k=-1)
+#
+# connectivity_matrix_all = np.ones((N_total_nodes, N_total_nodes), dtype=int)
+#
+# connectivity_matrix_none = np.zeros((N_total_nodes, N_total_nodes), dtype=int)
+#
+# connectivity_matrix_single = np.diag(np.ones(N_total_nodes, dtype=int), k=-1)
 
-connectivity_matrix_tri = np.tril(np.ones((N_total_nodes, N_total_nodes), dtype=int), k=-1)
+connectivity_matrix_ba = [simple_ba_graph(N_total_nodes, m_val, m_val, rng, a_arbitrary_constant=1000).astype(int) for m_val in m_values]
 
-connectivity_matrix_all = np.ones((N_total_nodes, N_total_nodes), dtype=int)
-
-connectivity_matrix_none = np.zeros((N_total_nodes, N_total_nodes), dtype=int)
-
-connectivity_matrix_single = np.diag(np.ones(N_total_nodes, dtype=int), k=-1)
-
-# connectivity_matrix_ba = simple_ba_graph(N_total_nodes, 1000, 1000, rng, a_arbitrary_constant=10).astype(int)
-
-G_s = [nx.barabasi_albert_graph(n=N_total_nodes, m=m_val, seed=int_for_random_generator) for m_val in m_values]
-connectivity_matrix_nx_ba = [nx.to_numpy_array(G, dtype=int) for G in G_s]
+# G_s = [nx.barabasi_albert_graph(n=N_total_nodes, m=m_val, seed=int_for_random_generator) for m_val in m_values]
+# connectivity_matrix_nx_ba = [nx.to_numpy_array(G, dtype=int) for G in G_s]
 
 type_matrix_dict = {
-    "er": connectivity_matrix_er,
-    "tri": connectivity_matrix_tri,
-    "all": connectivity_matrix_all,
-    "none": connectivity_matrix_none,
-    "single": connectivity_matrix_single,
-    "nx ba": connectivity_matrix_nx_ba
+    # "er": connectivity_matrix_er,
+    # "tri": connectivity_matrix_tri,
+    # "all": connectivity_matrix_all,
+    # "none": connectivity_matrix_none,
+    # "single": connectivity_matrix_single,
+    # "nx ba": connectivity_matrix_nx_ba,
+    "ba": connectivity_matrix_ba
 }
 type_values_dict = {
-    "er": epsilon_connection_probabilities,
-    "tri": None,
-    "all": None,
-    "none": None,
-    "single": None,
-    "nx ba": m_values
+    # "er": epsilon_connection_probabilities,
+    # "tri": None,
+    # "all": None,
+    # "none": None,
+    # "single": None,
+    # "nx ba": m_values,
+    "ba": m_values
 }
 
 

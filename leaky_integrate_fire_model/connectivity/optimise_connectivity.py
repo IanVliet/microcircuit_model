@@ -17,18 +17,32 @@ import json
 
 
 fixed_hyperparameters = {
-    "N_total_nodes": 25000,
+    "N_total_nodes": 10000,
     "int_random_generator": 1,
     "weight": 0.5,
     "dimensions": [1, 0, 1, 0, 1, 0],
     "pc": 300,
     # "option": "manc",
-    "option": "hemibrain",
+    # "option": "hemibrain",
+    # "option": "pyc-pyc",
+    "option": "cortical_microns",
     "number_of_seeds": 10,
+    "m_0": 1,
+    # "subset": 0.5
 }
 
 option = fixed_hyperparameters["option"]
-in_degree_elements, out_degree_elements = get_neuprint_data(option)
+in_degree_elements_total, out_degree_elements_total = get_degree_data(option)
+
+if 'subset' in fixed_hyperparameters and fixed_hyperparameters["subset"] is not None:
+    subset = fixed_hyperparameters["subset"]
+    rng = np.random.default_rng(fixed_hyperparameters["int_random_generator"])
+    in_degree_elements, out_degree_elements, rest_in_degree_elements, rest_out_degree_elements = (
+        randomly_select_subset_degree_data(in_degree_elements_total, out_degree_elements_total, rng, subset=subset))
+else:
+    in_degree_elements = in_degree_elements_total
+    out_degree_elements = out_degree_elements_total
+
 
 # m_0_nodes_choice = [50, 100]  # equivalent to "m" in the web application?
 # rho_probability_choice = [0.1]  # not present in web application? (Noise factor?, Delta?)
@@ -44,15 +58,16 @@ l_cardinality_partitions_choice = find_small_divisors(round(fixed_hyperparameter
 # dimensions = [[1, 0, 1, 0, 1, 0]]
 # pc = [300]
 
-max_m_0 = round(fixed_hyperparameters["N_total_nodes"]/(2*10))
+max_m_0 = fixed_hyperparameters["m_0"]
+# max_m_0 = round(fixed_hyperparameters["N_total_nodes"]/(2*10))
 # max_m_0 = round(fixed_hyperparameters["N_total_nodes"]/2)
-max_E_k = round(fixed_hyperparameters["N_total_nodes"]/(2*10))  # 500
+max_E_k = 100  # round(fixed_hyperparameters["N_total_nodes"]/(2*10))  # 500
 max_phi_D = max_E_k/(round(fixed_hyperparameters["N_total_nodes"]/2))
-# web application: https://gtalg.ebrains-italy.eu/connect/
+# web application: https://gtalg.ebrains-italy.eu/connect/  (certificate expired)
 
 search_space = {
-    # "m_0": tune.grid_search(m_0_nodes_choice),
-    "m_0": tune.randint(1, max_m_0),
+    "m_0": tune.choice([max_m_0]),
+    # "m_0": tune.randint(1, max_m_0),
     # "rho": tune.grid_search(rho_probability_choice),
     # "rho": tune.choice(rho_probability_choice),
     "rho": tune.uniform(0, 1),
@@ -65,9 +80,10 @@ search_space = {
     # "phi_D": tune.grid_search(phi_D_probability_choice),
     "phi_D": tune.uniform(0, max_phi_D),
     # "delta": tune.grid_search(delta),
-    "delta": tune.uniform(0.0, fixed_hyperparameters["N_total_nodes"]),
+    # "delta": tune.uniform(0.0, 10),
+    "delta": tune.uniform(0.0, fixed_hyperparameters["N_total_nodes"]/10),
     # "noise_factor": tune.grid_search(noise_factor),
-    "noise_factor": tune.uniform(0.0, fixed_hyperparameters["N_total_nodes"]),
+    "noise_factor": tune.uniform(0.0, 10),
 }
 start_fitting = time.time()
 
@@ -108,6 +124,12 @@ str_identifier = folder_name + "/" + str(folder_identifier)
 os.makedirs(str_identifier)
 file_name = str_identifier + "/top3_results.pkl"
 top3_results.to_pickle(file_name)
+
+if 'subset' in fixed_hyperparameters and fixed_hyperparameters["subset"] is not None:
+    subsets_filename = str_identifier + "/data_subsets.npz"
+    np.savez_compressed(subsets_filename, opt_in_degree_subset=in_degree_elements,
+                        opt_out_degree_subset=out_degree_elements, rest_in_degree_subset=rest_in_degree_elements,
+                        rest_out_degree_subset=rest_out_degree_elements)
 
 with open(str_identifier + "/fixed_hyperparameters.json", "w") as fixed_hyperparameters_file:
     json.dump(fixed_hyperparameters, fixed_hyperparameters_file)

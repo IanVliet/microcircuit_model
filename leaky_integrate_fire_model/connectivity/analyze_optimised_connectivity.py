@@ -13,15 +13,18 @@ import os
 import json
 import sys
 
-str_identifier = "saved_data_optimised_connectivity/40"  # 25  # 26
+str_identifier = "saved_data_optimised_connectivity/4"  # 43  # 44  # 25  # 26
 fixed_hyperparameters_name = "/fixed_hyperparameters.json"
-save_connectivity = True
+save_connectivity = False
+log_type = False
+binsize = 5
 try:
     with open(str_identifier + fixed_hyperparameters_name, "r") as configfile:
         json_parameters = json.load(configfile)
-    # int_random_generator = 2
+    # int_random_generator = 4
     int_random_generator = json_parameters['int_random_generator']
     N_total_nodes = json_parameters['N_total_nodes']
+    # N_total_nodes = 10000
     weight = json_parameters['weight']
     option = json_parameters['option']
     number_of_seeds = json_parameters['number_of_seeds']
@@ -49,14 +52,14 @@ fixed_hyperparameters = {
     "option": option,
     "number_of_seeds": number_of_seeds,
 }
-in_degree_elements, out_degree_elements = get_neuprint_data(option)
+in_degree_elements, out_degree_elements = get_degree_data(option)
 
 save_optimised_parameters = "optimised_parameters/" + option
 
 file_name = str_identifier + "/top3_results.pkl"
 png_extension = ".png"
 pdf_extension = ".pdf"
-hist_degree_distributions_name = "/hist_degree_distributions"
+hist_degree_distributions_name = "/hist_degree_distributions_log_N_" + str(N_total_nodes)
 detailed_name = "_detailed"
 top3_results = pd.read_pickle(file_name)
 pd.set_option('display.max_columns', None)
@@ -69,9 +72,15 @@ str_name_dict = {
     "detailed_name": detailed_name
 }
 
-# reproduce_top3_results(top3_results, in_degree_elements, out_degree_elements, str_name_dict, fixed_hyperparameters,
-#                            dim_pc_fixed_parameter, save_connectivity)
+reproduce_top3_results(top3_results, in_degree_elements, out_degree_elements, str_name_dict, fixed_hyperparameters,
+                           dim_pc_fixed_parameter, save_connectivity, one_seed_only=True, log_type=log_type, binsize=binsize)
 
-save_parameters_top_result(save_optimised_parameters, top3_results, fixed_hyperparameters, dim_pc_fixed_parameter)
+# save_parameters_top_result(save_optimised_parameters, top3_results, fixed_hyperparameters, dim_pc_fixed_parameter)
+
+# calculates entropy for the distribution of the dataset (instead of the model indegree and outdegree elements,
+# it is only the indegree and outdegree elements of the dataset)
+entropy_score = elements_linear_cross_entropy(in_degree_elements, out_degree_elements, in_degree_elements,
+                                                out_degree_elements, weight)
+print(entropy_score)
 
 plt.show()

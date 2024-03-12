@@ -11,6 +11,6 @@ To run the Brunel Network and analyze the results, there are 3 steps:
 
 ## Connectivity
 To create optimised connectivity there are three steps:
-1. Run [extract_data_neuprint.py](leaky_integrate_fire_model/connectivity/data_preparation/extract_data_neuprint.py) in [data_preparation](leaky_integrate_fire_model/connectivity/data_preparation) to acquire the raw data (for now there are two options `"manc"` and `"hemibrain"`).
+1. Run [extract_data.py](leaky_integrate_fire_model/connectivity/data_preparation/extract_data.py) in [data_preparation](leaky_integrate_fire_model/connectivity/data_preparation) to acquire the raw data (for now there are two options `"manc"` and `"hemibrain"`).
 2. Run [optimise_connectivity.py](leaky_integrate_fire_model/connectivity/optimise_connectivity.py) where the `option` in `fixed_hyperparameters` should be the same one used when you generated the raw data. This creates a folder "saved_data_optimised_connectivity" within which there is a folder with an integer as a name, where it saves the data to recreate the top 3 results.
 3. Run [analyze_optimised_connectivity.py](leaky_integrate_fire_model/connectivity/analyze_optimised_connectivity.py) to recreate the top 3 results, where `str_identifier` should refer to the (integer) folder created when you ran [optimise_connectivity.py](leaky_integrate_fire_model/connectivity/optimise_connectivity.py).

@@ -13,10 +13,10 @@ from scipy.stats import binom
 import os
 import json
 import sys
-from data_preparation.data_prep_utils import *
+from leaky_integrate_fire_model.connectivity.data_preparation.data_prep_utils import *
 
 
-def get_neuprint_data(option, data_location='data_preparation'):
+def get_degree_data(option, data_location='data_preparation'):
     if option == "manc":
         with open(data_location + '/manc_v1.0_indegrees.npy', 'rb') as indegree_file:
             in_degree_elements = np.load(indegree_file)
@@ -29,11 +29,45 @@ def get_neuprint_data(option, data_location='data_preparation'):
 
         with open(data_location + '/hemibrain_v1.2.1_outdegrees.npy', 'rb') as outdegree_file:
             out_degree_elements = np.load(outdegree_file)
+    elif option == "pyc-pyc":
+        with open(data_location + '/pyc-pyc_indegrees.npy', 'rb') as indegree_file:
+            in_degree_elements = np.load(indegree_file)
+        with open(data_location + '/pyc-pyc_outdegrees.npy', 'rb') as outdegree_file:
+            out_degree_elements = np.load(outdegree_file)
+    # from MICrONS Explorer https://www.microns-explorer.org/phase1, raw data at: https://zenodo.org/records/5579388
+    # accompanying paper: Turner, N. L., Macrina, T., Bae, J. A., Yang, R., Wilson, A. M., Schneider-Mizell, C., Lu,
+    # R., Wu, J., Bodor, A. L., Bleckert, A. A., Brittain, D., Froudarakis, E., Dorkenwald, S., Collman, F., Kemnitz,
+    # N., Ih, D., Silversmith, W. M., Zung, J., … Seung, H. S. (2022). Reconstruction of neocortex: Organelles,
+    # compartments, cells, circuits, and activity. Cell, 185(6), 1082-1100.e24. https://doi.org/10.1016/j.cell.2022.01.023
+    elif option == "cortical_microns":
+        with open(data_location + '/cortical_microns_indegrees.npy', 'rb') as indegree_file:
+            in_degree_elements = np.load(indegree_file)
+        with open(data_location + '/cortical_microns_outdegrees.npy', 'rb') as outdegree_file:
+            out_degree_elements = np.load(outdegree_file)
+    #     Also from MICrONS Explorer, however data can be downloaded from
+    #     https://www.microns-explorer.org/mm3-release-notes-v117
     else:
         print("The chosen option", option, "is not one of the possible options.")
         exit(1)
     return in_degree_elements, out_degree_elements
 
+
+def randomly_select_subset_degree_data(in_degree_elements, out_degree_elements, rng, subset=0.5):
+    """Randomly selects a subset of the degree elements, e.g. if half (subset=0.5) is selected the indegree elements and
+     outdegree elements are randomized and half of the array is saved."""
+    num_in_degree_elements_subset = round(len(in_degree_elements)*subset)
+    num_out_degree_elements_subset = round(len(out_degree_elements)*subset)
+
+    random_in_degree_elements = rng.permutation(in_degree_elements)
+    random_out_degree_elements = rng.permutation(out_degree_elements)
+
+    subset_in_degree_elements = random_in_degree_elements[:num_in_degree_elements_subset]
+    subset_out_degree_elements = random_out_degree_elements[:num_out_degree_elements_subset]
+
+    rest_in_degree_elements = random_in_degree_elements[num_in_degree_elements_subset:]
+    rest_out_degree_elements = random_out_degree_elements[num_out_degree_elements_subset:]
+
+    return subset_in_degree_elements, subset_out_degree_elements, rest_in_degree_elements, rest_out_degree_elements
 
 def find_small_divisors(number, max_value):
     divisors = []
@@ -456,6 +490,16 @@ def linear_combination_cross_entropy(in_degree_cross_entropy, out_degree_cross_e
     return weight * in_degree_cross_entropy + (1 - weight) * out_degree_cross_entropy
 
 
+def degree_elements_are_np_arrays(in_degree_elements, out_degree_elements):
+    return isinstance(in_degree_elements, np.ndarray) and isinstance(out_degree_elements, np.ndarray)
+
+
+def degree_elements_are_lists_of_np_arrays(in_degree_elements, out_degree_elements):
+    return (isinstance(in_degree_elements, list) and isinstance(out_degree_elements, list) and
+            all(isinstance(in_degree, np.ndarray) for in_degree in in_degree_elements) and
+            all(isinstance(out_degree, np.ndarray) for out_degree in out_degree_elements))
+
+
 def extend_with_zeros(total_length, original_distribution):
     new_distribution = np.zeros(total_length)
     new_distribution[:len(original_distribution)] = original_distribution
@@ -549,14 +593,14 @@ def save_connectivity_graphs(data_directory, graph, graph_number):
 
 
 def reproduce_top3_results(top3_results, in_degree_elements, out_degree_elements, str_name_dict, fixed_hyperparameters,
-                           dim_pc_fixed_parameter, save_connectivity=True):
+                           dim_pc_fixed_parameter, save_connectivity=True, one_seed_only=False, log_type=True, binsize=20):
     str_identifier = str_name_dict["str_identifier"]
 
     int_random_generator = fixed_hyperparameters['int_random_generator']
     N_total_nodes = fixed_hyperparameters['N_total_nodes']
     weight = fixed_hyperparameters['weight']
     option = fixed_hyperparameters['option']
-    if "number_of_seeds" in fixed_hyperparameters:
+    if "number_of_seeds" in fixed_hyperparameters and not one_seed_only:
         number_of_seeds = fixed_hyperparameters['number_of_seeds']
     else:
         number_of_seeds = 1
@@ -593,7 +637,7 @@ def reproduce_top3_results(top3_results, in_degree_elements, out_degree_elements
             in_degree_elements_model, out_degree_elements_model = get_degree_elements(connectivity_matrix=graph)
 
             plot_and_save_histograms(option, data_directory, str_name_dict, in_degree_elements, out_degree_elements,
-                                     in_degree_elements_model, out_degree_elements_model)
+                                     in_degree_elements_model, out_degree_elements_model, log_type=log_type, binsize=binsize)
 
             recreated_score = elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model,
                                                             in_degree_elements,
@@ -613,7 +657,7 @@ def reproduce_top3_results(top3_results, in_degree_elements, out_degree_elements
                 in_degree_elements_model, out_degree_elements_model = get_degree_elements(connectivity_matrix=graph)
 
                 plot_and_save_histograms(option, data_directory, str_name_dict, in_degree_elements, out_degree_elements,
-                                         in_degree_elements_model, out_degree_elements_model)
+                                         in_degree_elements_model, out_degree_elements_model, log_type=log_type, binsize=binsize)
 
                 single_recreated_score += elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model,
                                                                 in_degree_elements,
@@ -681,8 +725,6 @@ def save_parameters_top_result(data_directory, top3_results, fixed_hyperparamete
             "dimensions": dimensions,
             "pc": int(pc),
         }
-    [print(key, type(value)) for key, value in zip(optimised_parameters.keys(), optimised_parameters.values())]
-    print(optimised_parameters)
 
     if not os.path.exists(data_directory):
         os.makedirs(data_directory)
@@ -711,30 +753,43 @@ def optimised_convolutive_graph(rng, parameters, in_degree_elements, out_degree_
     return graph
 
 
-def get_optimised_connectivity(option):
+def get_optimised_connectivity(option, N_total_nodes=None, relative_path_to_connectivity=None):
     neuprint_data_location = 'data_preparation'
     optimised_parameters_location = 'optimised_parameters/' + option
+    if relative_path_to_connectivity is not None:
+        total_neuprint_data_location = relative_path_to_connectivity + neuprint_data_location
+        total_optimised_parameters_location = relative_path_to_connectivity + optimised_parameters_location
+    else:
+        total_neuprint_data_location = neuprint_data_location
+        total_optimised_parameters_location = optimised_parameters_location
+
     # check if the chosen option already has downloaded data for the dataset,
     # if it does not, it will download the data.
     # (Be aware if only the indegree or only the outdegree has been downloaded,
     # that it will be replaced with new degree data.)
-    if not data_downloaded(option, neuprint_data_location):
-        print("Data not yet downloaded")
-        """
-        Look at the quickstart guide on neuprint to get your own token:
-        https://connectome-neuprint.github.io/neuprint-python/docs/quickstart.html
-        and replace the token below with your own 
-        """
-        token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Imlhbi52dmxpZXRAZ21haWwuY29tIiwibGV2ZWwiOiJub2F1dGgiLCJpbWFnZS11cmwiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NKMVpoMnRyWGNUOVgxWWF5NE8zRHExUHBaUjdJVXAzQ1dfLUNVTm1PcmVkdz1zOTYtYz9zej01MD9zej01MCIsImV4cCI6MTg3OTAxOTY1N30.GnYkuGJjLyxu7lEWqrL9BkxMwLx-7tIM_n63DyLvR9Q'
+    if not data_downloaded(option, total_neuprint_data_location):
+        if option == "manc" or option == "hemibrain":
+            print("Data not yet downloaded")
+            """
+            Look at the quickstart guide on neuprint to get your own token:
+            https://connectome-neuprint.github.io/neuprint-python/docs/quickstart.html
+            and replace the token below with your own 
+            """
+            token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Imlhbi52dmxpZXRAZ21haWwuY29tIiwibGV2ZWwiOiJub2F1dGgiLCJpbWFnZS11cmwiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NKMVpoMnRyWGNUOVgxWWF5NE8zRHExUHBaUjdJVXAzQ1dfLUNVTm1PcmVkdz1zOTYtYz9zej01MD9zej01MCIsImV4cCI6MTg3OTAxOTY1N30.GnYkuGJjLyxu7lEWqrL9BkxMwLx-7tIM_n63DyLvR9Q'
 
-        extract_neuprint_data(option, token, neuprint_data_location)
+            extract_neuprint_data(option, token, total_neuprint_data_location)
+        elif option == "pyc-pyc":
+            get_degrees_from_root_ids_csv_file(total_neuprint_data_location + "/211019_pyc-pyc_subgraph_v185.csv", saved_filename='pyc-pyc',
+                                               first_column_index=4)
 
     # save degree data in variables
-    in_degree_elements, out_degree_elements = get_neuprint_data(option, neuprint_data_location)
+    in_degree_elements, out_degree_elements = get_degree_data(option, total_neuprint_data_location)
 
-    parameters = get_optimised_parameters(optimised_parameters_location)
+    parameters = get_optimised_parameters(total_optimised_parameters_location)
 
     # could get and change parameters e.g.:
+    if N_total_nodes is not None:
+        parameters["N_total_nodes"] = N_total_nodes
     # parameters["N_total_nodes"] = 1000
     # parameters["dimensions"] = [2, 0, 2, 0, 2, 0]
 
@@ -753,7 +808,7 @@ def get_degree_elements(connectivity_matrix):
 
 
 def plot_and_save_histograms(option, data_directory, str_name_dict, in_degree_elements, out_degree_elements,
-                             in_degree_elements_model, out_degree_elements_model):
+                             in_degree_elements_model, out_degree_elements_model, log_type=True, binsize=20):
     hist_degree_distributions_name = str_name_dict["hist_degree_distributions_name"]
     png_extension = str_name_dict["png_extension"]
     pdf_extension = str_name_dict["pdf_extension"]
@@ -763,7 +818,7 @@ def plot_and_save_histograms(option, data_directory, str_name_dict, in_degree_el
     figure, ax = hist_plot_data_model_degree_distributions(option, in_degree_elements, in_degree_elements_model,
                                                            in_degree_elements_matlab_sim, out_degree_elements,
                                                            out_degree_elements_model,
-                                                           out_degree_elements_matlab_sim, log_type=True)
+                                                           out_degree_elements_matlab_sim, log_type=log_type, binsize=binsize)
     figure.savefig(data_directory + hist_degree_distributions_name + png_extension)
     figure.savefig(data_directory + hist_degree_distributions_name + pdf_extension)
 
@@ -861,10 +916,10 @@ def plot_degree_counts(connectivity_graph, title="Convolutive model"):
 
 def hist_plot_data_model_degree_distributions(option, in_degree_elements, in_degree_elements_model,
                                               in_degree_elements_matlab_sim, out_degree_elements,
-                                              out_degree_elements_model, out_degree_elements_matlab_sim, log_type=False, model_data_label='sim'):
+                                              out_degree_elements_model, out_degree_elements_matlab_sim, log_type=False, model_data_label='sim', binsize=20):
     fig, ax = plt.subplots(1, 2)
 
-    binsize = 20
+    binsize = binsize
     bin_edges_indegree = get_bin_edges([in_degree_elements, in_degree_elements_model, in_degree_elements_matlab_sim], binsize=binsize)
     bin_edges_outdegree = get_bin_edges([out_degree_elements, out_degree_elements_model, out_degree_elements_matlab_sim], binsize=binsize)
     density_type = True
