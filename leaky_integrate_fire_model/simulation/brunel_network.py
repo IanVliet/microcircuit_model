@@ -18,18 +18,34 @@ import json
 start_program = time.time()
 parameter_filename = "config.json"
 
-int_for_random_generator, number_of_cells, ratio_excitatory_cells, gamma_ratio_connections, \
-        epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay, \
-        J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step, \
-        save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells = get_brunel_parameters(parameter_filename)
+(int_for_random_generator, number_of_cells, ratio_excitatory_cells, gamma_ratio_connections,
+ epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay,
+ J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step,
+ save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells,
+ convolutive_connectivity) = get_brunel_parameters(parameter_filename)
 
 # neuprint documentation: https://connectome-neuprint.github.io/neuprint-python/docs/notebooks/QueryTutorial.html
-option = "manc"  # manc --> "https://www.janelia.org/project-team/flyem/manc-connectome"
-# option = "hemibrain"  # hemibrain --> "https://www.janelia.org/project-team/flyem/hemibrain"
+# option = "manc"  # manc --> "https://www.janelia.org/project-team/flyem/manc-connectome"
+option = "hemibrain"  # hemibrain --> "https://www.janelia.org/project-team/flyem/hemibrain"
 relative_path_to_connectivity = "../connectivity/"
 
 end_parameters = time.time()
 print("get parameters: "+str(end_parameters-start_program)+" s")
+
+if not os.path.exists('saved_data_brunel_network'):
+    os.makedirs('saved_data_brunel_network')
+
+folder_identifier = 0
+while os.path.exists("saved_data_brunel_network/" + str(folder_identifier)):
+    folder_identifier += 1
+str_identifier = "saved_data_brunel_network/" + str(folder_identifier)
+os.makedirs(str_identifier)
+
+shutil.copy(parameter_filename, str_identifier + "/config.json")
+
+end_folders_save_parameters = time.time()
+print("create folder and save parameters: "+str(end_folders_save_parameters-end_parameters)+" s")
+
 rng = np.random.default_rng(int_for_random_generator)
 number_excitatory_cells = round(ratio_excitatory_cells * number_of_cells)
 number_inhibitory_cells = number_of_cells - number_excitatory_cells
@@ -38,9 +54,16 @@ C_random_inhibitory_connections = round(gamma_ratio_connections * C_random_excit
 C_random_connections = C_random_excitatory_connections + C_random_inhibitory_connections
 C_ext_connections = C_random_excitatory_connections
 
-# connectivity_matrix = constant_probability_random_connectivity_matrix(number_of_cells, epsilon_connection_probability, rng)
-connectivity_matrix = get_optimised_connectivity(option, N_total_nodes=number_of_cells,
-                                                 relative_path_to_connectivity=relative_path_to_connectivity)
+if convolutive_connectivity:
+    connectivity_matrix_ordered = get_optimised_connectivity(option, N_total_nodes=number_of_cells,
+                                                             relative_path_to_connectivity=relative_path_to_connectivity,
+                                                             int_random_generator=int_for_random_generator)
+    reorder_nodes_connectivity = rng.permutation(number_of_cells)
+    connectivity_matrix = connectivity_matrix_ordered[reorder_nodes_connectivity, :][:, reorder_nodes_connectivity]
+else:
+    connectivity_matrix = constant_probability_random_connectivity_matrix(number_of_cells,
+                                                                          epsilon_connection_probability, rng)
+
 
 # the receiving (postsynaptic) cell corresponds to the row,
 # and the (presynaptic) cells which give it a connection correspond to columns in that row which have a value
@@ -81,7 +104,7 @@ I_t = np.zeros(number_of_cells)  # if Rm is in M ohm, then I_t is in nA. (Curren
 cells_in_refractory_period = np.zeros(number_of_cells) - 1
 
 start_spike_generation = time.time()
-print("setup simulation: "+str(start_spike_generation-end_parameters)+" s")
+print("setup simulation: "+str(start_spike_generation-end_folders_save_parameters)+" s")
 external_generated_spike_times = binomial_probability_spike_generation(external_freq_excitatory,
                                                                           time_step, number_of_time_steps,
                                                                           number_of_cells, C_ext_connections, rng)
@@ -165,15 +188,6 @@ print("Simulation: "+str(end_simulation - start_simulation)+" s")
 # print(np.nanmean(V_t[0:5, 50:]))
 print("End simulation, start saving data")
 
-if not os.path.exists('saved_data_brunel_network'):
-    os.makedirs('saved_data_brunel_network')
-
-folder_identifier = 0
-while os.path.exists("saved_data_brunel_network/" + str(folder_identifier)):
-    folder_identifier += 1
-str_identifier = "saved_data_brunel_network/" + str(folder_identifier)
-os.makedirs(str_identifier)
-
 with open(str_identifier + "/spikes.npy", "wb") as spikesfile:
     np.save(spikesfile, spikes)
 
@@ -182,8 +196,6 @@ with open(str_identifier + "/voltage_traces.npy", "wb") as voltage_file:
 
 with open(str_identifier + "/binomial_external_spikes.npy", "wb") as external_spikes_file:
     np.save(external_spikes_file, external_generated_spike_times)
-
-shutil.copy(parameter_filename, str_identifier + "/config.json")
 
 end_saving_data = time.time()
 print("Saving data: "+str(end_saving_data-end_simulation)+" s")

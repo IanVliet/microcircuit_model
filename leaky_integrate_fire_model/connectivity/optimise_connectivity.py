@@ -61,7 +61,7 @@ l_cardinality_partitions_choice = find_small_divisors(round(fixed_hyperparameter
 max_m_0 = fixed_hyperparameters["m_0"]
 # max_m_0 = round(fixed_hyperparameters["N_total_nodes"]/(2*10))
 # max_m_0 = round(fixed_hyperparameters["N_total_nodes"]/2)
-max_E_k = 100  # round(fixed_hyperparameters["N_total_nodes"]/(2*10))  # 500
+max_E_k = round(fixed_hyperparameters["N_total_nodes"]/(2*10))  # 100 # 500
 max_phi_D = max_E_k/(round(fixed_hyperparameters["N_total_nodes"]/2))
 # web application: https://gtalg.ebrains-italy.eu/connect/  (certificate expired)
 

@@ -29,11 +29,11 @@ for index, folder in enumerate(folders):
 
     firing_rates[index] = avg_firing_rate_dict["avg_firing_rate"]
 
-    int_for_random_generator, number_of_cells, ratio_excitatory_cells, gamma_ratio_connections, \
-        epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay, \
-        J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step, \
-        save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells = get_brunel_parameters(
-            main_folder + str(folder) + config_name)
+    (int_for_random_generator, number_of_cells, ratio_excitatory_cells, gamma_ratio_connections,
+     epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay,
+     J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step,
+     save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells,
+     convolutive_connectivity) = get_brunel_parameters(main_folder + str(folder) + config_name)
 
     number_of_time_steps = round(simulation_time / time_step)
     rng = np.random.default_rng(int_for_random_generator)

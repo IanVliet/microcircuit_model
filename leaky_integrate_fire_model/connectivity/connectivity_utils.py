@@ -69,6 +69,7 @@ def randomly_select_subset_degree_data(in_degree_elements, out_degree_elements, 
 
     return subset_in_degree_elements, subset_out_degree_elements, rest_in_degree_elements, rest_out_degree_elements
 
+
 def find_small_divisors(number, max_value):
     divisors = []
     for divisor in range(1, number + 1):
@@ -179,7 +180,7 @@ def ba_graph(sigma, a_arbitrary_constant, m_0_nodes, rho_probability, rng, total
 
 def spatial_block_ba_graph(num_cells, x_max, x_min, y_max, y_min, z_max, z_min, delta, noise_factor, m_0_nodes, rng,
                            sigma, rho_probability):
-    connectivity_graph = np.zeros((num_cells, num_cells))
+    connectivity_graph = np.zeros((num_cells, num_cells), dtype=bool)
     connectivity_graph[:m_0_nodes, :m_0_nodes] = random_graph = constant_probability_random_connectivity_matrix(m_0_nodes,
                                                                                                  rho_probability, rng)
 
@@ -224,7 +225,7 @@ def spatial_block_ba_graph(num_cells, x_max, x_min, y_max, y_min, z_max, z_min, 
 
 def convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions, N_total_nodes, E_K,
                           phi_U_probability, phi_D_probability, rng, in_degree_elements, out_degree_elements,
-                          dimensions, pc=300, delta=3, noise_factor=1.5, spatial=True):
+                          dimensions, pc=300, delta=3, noise_factor=1.5, spatial=True, return_positions=False):
 
     N_1 = N_2 = round(N_total_nodes/2)
     p_probability = (E_K / N_1 - phi_D_probability) / (phi_U_probability - phi_D_probability)
@@ -296,13 +297,15 @@ def convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions, 
     # ax2.legend()
     # plt.show()
     # print("sigma: " + str(sigma))
+    positions_A_1 = np.vstack((np.zeros(N_1), np.zeros(N_1), np.zeros(N_1)))
+    positions_A_2 = np.vstack((np.zeros(N_2), np.zeros(N_2), np.zeros(N_2)))
     if spatial:
-        A_1 = spatial_block_ba_graph(N_1, dimensions[0], dimensions[1], dimensions[2], dimensions[3],
+        A_1, positions_A_1 = spatial_block_ba_graph(N_1, dimensions[0], dimensions[1], dimensions[2], dimensions[3],
                                      dimensions[4], dimensions[5], delta, noise_factor, m_0_nodes, rng,
-                                     sigma, rho_probability)[0]
-        A_2 = spatial_block_ba_graph(N_2, dimensions[0], dimensions[1], dimensions[2], dimensions[3],
+                                     sigma, rho_probability)[0:2]
+        A_2, positions_A_2 = spatial_block_ba_graph(N_2, dimensions[0], dimensions[1], dimensions[2], dimensions[3],
                                      dimensions[4], dimensions[5], delta, noise_factor, m_0_nodes, rng,
-                                     sigma, rho_probability)[0]
+                                     sigma, rho_probability)[0:2]
     else:
         c = (m - E_K - m_0_nodes/N_1 * (m_0_nodes - 1) * rho_probability) * N_1 / (N_1 - m_0_nodes)
         print("c: " + str(c))
@@ -380,7 +383,10 @@ def convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions, 
                 #     B[A_1_partitions[i_partition], A_2_partitions[j_partition].T] = 1
     end_exponential_model = time.time()
     print("Exponential model generation: " + str(end_exponential_model - end_partition_generation))
-    return B
+    if return_positions:
+        return B, np.concatenate((positions_A_1, positions_A_2))
+    else:
+        return B
 
 
 def simple_ba_graph(total_nodes, m_0_nodes, m, rng, a_arbitrary_constant=1000):
@@ -575,14 +581,19 @@ def elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_
     return linear_combination_cross_entropy(in_degree_cross_entropy, out_degree_cross_entropy, weight=weight)
 
 
-def create_data_directory(str_identifier):
+def create_data_directory(str_identifier, results_folder="/results_data/", subdirectory=None):
     if not os.path.exists(str_identifier):
         os.makedirs(str_identifier)
 
+    if subdirectory is None:
+        subdirectory_name = ""
+    else:
+        subdirectory_name = subdirectory
+
     folder_identifier = 0
-    while os.path.exists(str_identifier + "/results_data/" + str(folder_identifier)):
+    while os.path.exists(str_identifier + results_folder + str(folder_identifier) + subdirectory_name):
         folder_identifier += 1
-    data_directory = str_identifier + "/results_data/" + str(folder_identifier)
+    data_directory = str_identifier + results_folder + str(folder_identifier) + subdirectory_name
     os.makedirs(data_directory)
     return data_directory
 
@@ -592,9 +603,101 @@ def save_connectivity_graphs(data_directory, graph, graph_number):
         np.save(connectivityfile, graph)
 
 
+def get_names_for_hist_and_cross_vs_total_nodes(log_type, N_total_nodes, binsize=None):
+    if log_type:
+        graph_type_name = "_log"
+    else:
+        graph_type_name = "_lin"
+    if binsize is not None:
+        binsize_name = "_binsize_" + str(binsize)
+    else:
+        binsize_name = ""
+    hist_degree_distributions_name = "/hist_degree_distributions" + graph_type_name + "_N_" + str(N_total_nodes) + binsize_name
+    cross_entropy_network_size_name = "/cross_entropy_network_size" + graph_type_name + binsize_name
+    return hist_degree_distributions_name, cross_entropy_network_size_name
+
+
+def get_fixed_hyperparameters(str_identifier, fixed_hyperparameters_name, int_random_generator=None,
+                              N_total_nodes=None, weight=None, number_of_seeds=None, dimensions=None):
+    try:
+        with open(str_identifier + fixed_hyperparameters_name, "r") as configfile:
+            json_parameters = json.load(configfile)
+        if int_random_generator is None:
+            int_random_generator = json_parameters['int_random_generator']
+        if N_total_nodes is None:
+            N_total_nodes = json_parameters['N_total_nodes']
+        if weight is None:
+            weight = json_parameters['weight']
+        option = json_parameters['option']
+        if number_of_seeds is None:
+            number_of_seeds = json_parameters['number_of_seeds']
+
+        if "dimensions" in json_parameters:
+            if dimensions is None:
+                dimensions = json_parameters['dimensions']
+            pc = json_parameters['pc']
+            dim_pc_fixed_parameter = True
+        else:
+            dim_pc_fixed_parameter = False
+            dimensions = None
+            pc = None
+    except IOError:
+        print("Could not process the file due to IOError")
+        sys.exit(1)
+    except KeyError:
+        print("A key was not defined")
+        sys.exit(2)
+
+    fixed_hyperparameters = {
+        "N_total_nodes": N_total_nodes,
+        "int_random_generator": int_random_generator,
+        "weight": weight,
+        "dimensions": dimensions,
+        "pc": pc,
+        "option": option,
+        "number_of_seeds": number_of_seeds,
+    }
+    return json_parameters, fixed_hyperparameters, dim_pc_fixed_parameter
+
+
+def get_standard_file_and_folder_names(option, str_identifier, fixed_hyperparameters_name, log_type, N_total_nodes):
+    save_optimised_parameters = "optimised_parameters/" + option
+
+    file_name = str_identifier + "/top3_results.pkl"
+    png_extension = ".png"
+    pdf_extension = ".pdf"
+    hist_degree_distributions_name, cross_entropy_network_size_name = (
+        get_names_for_hist_and_cross_vs_total_nodes(log_type, N_total_nodes))
+    detailed_name = "_detailed"
+
+    str_name_dict = {
+        "str_identifier": str_identifier,
+        "hist_degree_distributions_name": hist_degree_distributions_name,
+        "cross_entropy_network_size_name": cross_entropy_network_size_name,
+        "png_extension": png_extension,
+        "pdf_extension": pdf_extension,
+        "detailed_name": detailed_name,
+        "fixed_hyperparameters_name": fixed_hyperparameters_name
+    }
+    return save_optimised_parameters, file_name, str_name_dict
+
+
 def reproduce_top3_results(top3_results, in_degree_elements, out_degree_elements, str_name_dict, fixed_hyperparameters,
-                           dim_pc_fixed_parameter, save_connectivity=True, one_seed_only=False, log_type=True, binsize=20):
+                           dim_pc_fixed_parameter, save_connectivity=True, one_seed_only=False, log_type=True,
+                           binsize=20, single_figure=False, top_result_only=False, main_directory="/results_data/",
+                           subdirectory=None):
     str_identifier = str_name_dict["str_identifier"]
+    fixed_hyperparameters_name = str_name_dict["fixed_hyperparameters_name"]
+    # get original hyperparameters
+    try:
+        with open(str_identifier + fixed_hyperparameters_name, "r") as configfile:
+            json_parameters = json.load(configfile)
+    except IOError:
+        print("Could not process the file due to IOError")
+        sys.exit(1)
+    except KeyError:
+        print("A key was not defined")
+        sys.exit(2)
 
     int_random_generator = fixed_hyperparameters['int_random_generator']
     N_total_nodes = fixed_hyperparameters['N_total_nodes']
@@ -624,12 +727,12 @@ def reproduce_top3_results(top3_results, in_degree_elements, out_degree_elements
                 print("dimensions and pc could not be found in either fixed_hyperparameters.json nor top3_results.pkl")
                 exit(-1)
 
-        data_directory = create_data_directory(str_identifier)
+        data_directory = create_data_directory(str_identifier, results_folder=main_directory, subdirectory=subdirectory)
         if number_of_seeds == 1:
             graph = convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions,
-                                      N_total_nodes, E_k, phi_U_probability,
-                                      phi_D_probability, rng, in_degree_elements, out_degree_elements, dimensions,
-                                      delta=delta, noise_factor=noise_factor, spatial=True, pc=pc)
+                                          N_total_nodes, E_k, phi_U_probability,
+                                          phi_D_probability, rng, in_degree_elements, out_degree_elements, dimensions,
+                                          delta=delta, noise_factor=noise_factor, spatial=True, pc=pc)
             if save_connectivity:
                 save_connectivity_graphs(data_directory, graph, 0)
 
@@ -642,8 +745,10 @@ def reproduce_top3_results(top3_results, in_degree_elements, out_degree_elements
             recreated_score = elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model,
                                                             in_degree_elements,
                                                             out_degree_elements, weight)
+            std_recreated_score = None
         else:
-            single_recreated_score = 0
+            recreated_scores = np.zeros(number_of_seeds)
+            plot_figure = True
             for seed_number, child_rng in zip(range(number_of_seeds), rng.spawn(number_of_seeds)):
                 graph = convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions,
                                               N_total_nodes, E_k, phi_U_probability,
@@ -655,20 +760,26 @@ def reproduce_top3_results(top3_results, in_degree_elements, out_degree_elements
 
                 # results from generative convolutional model
                 in_degree_elements_model, out_degree_elements_model = get_degree_elements(connectivity_matrix=graph)
+                if plot_figure:
+                    plot_and_save_histograms(option, data_directory, str_name_dict, in_degree_elements, out_degree_elements,
+                                             in_degree_elements_model, out_degree_elements_model, log_type=log_type, binsize=binsize)
+                    if single_figure:
+                        plot_figure = False
 
-                plot_and_save_histograms(option, data_directory, str_name_dict, in_degree_elements, out_degree_elements,
-                                         in_degree_elements_model, out_degree_elements_model, log_type=log_type, binsize=binsize)
-
-                single_recreated_score += elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model,
-                                                                in_degree_elements,
-                                                                out_degree_elements, weight)
-            recreated_score = single_recreated_score/number_of_seeds
+                recreated_scores[seed_number] = elements_linear_cross_entropy(in_degree_elements_model,
+                                                                              out_degree_elements_model,
+                                                                              in_degree_elements,
+                                                                              out_degree_elements, weight)
+            recreated_score = np.average(recreated_scores)
+            std_recreated_score = np.std(recreated_scores, ddof=1)
 
         print("original score:", result["score"])
         print("recreated score:", recreated_score)
+        print("std recreated_score:", std_recreated_score)
         scores = {
             "original score": result["score"],
             "recreated score": recreated_score,
+            "std_recreated_score": std_recreated_score,
         }
 
         config = {
@@ -683,6 +794,149 @@ def reproduce_top3_results(top3_results, in_degree_elements, out_degree_elements
             "dimensions": dimensions,
             "pc": pc,
         }
+
+        # Also save hyperparameters that were chosen differently
+        for key, value in fixed_hyperparameters.items():
+            if json_parameters[key] != value:
+                config[key] = value
+        print(config)
+
+        with open(data_directory + "/scores_parameters.json", "w") as scores_file:
+            json.dump(scores | config, scores_file)
+
+        if top_result_only:
+            return
+
+
+def full_analysis_optimised_connectivity(top3_results, in_degree_elements, out_degree_elements, str_name_dict, fixed_hyperparameters,
+                           dim_pc_fixed_parameter, save_connectivity=True, total_nodes_binsize_plot_type_dict=None):
+
+    if total_nodes_binsize_plot_type_dict is None:
+        print("The configurations which should be analysed were not specified (correctly)")
+        return
+
+    str_identifier = str_name_dict["str_identifier"]
+    fixed_hyperparameters_name = str_name_dict["fixed_hyperparameters_name"]
+
+    # get fixed_parameters (could have been adapted)
+    int_random_generator = fixed_hyperparameters['int_random_generator']
+    weight = fixed_hyperparameters['weight']
+    option = fixed_hyperparameters['option']
+    if "number_of_seeds" in fixed_hyperparameters:
+        number_of_seeds = fixed_hyperparameters['number_of_seeds']
+    else:
+        number_of_seeds = 5
+    dimensions = fixed_hyperparameters['dimensions']
+    pc = fixed_hyperparameters['pc']
+
+    # select the result we analyse (standard is that we choose the best result)
+    result = top3_results.iloc[0]
+    # get parameters specific to result
+    rng = np.random.default_rng(int_random_generator)
+    m_0_nodes = result["config/m_0"]
+    rho_probability = result["config/rho"]  # not present in web application? (Noise factor?, Delta?)
+    l_cardinality_partitions = result["config/l"]  # Likely L in the web application
+    E_k = result["config/E_k"]  # likely EK in the web application
+    phi_U_probability = result["config/phi_U"]  # likely phi_U in the web application
+    phi_D_probability = result["config/phi_D"]  # likely phi_D in the web application
+    delta = result["config/delta"]
+    noise_factor = result["config/noise_factor"]
+    if not dim_pc_fixed_parameter:
+        if "config/dimensions" in result:
+            dimensions = result["config/dimensions"]
+            pc = result["config/pc"]
+        else:
+            print(
+                "dimensions and pc could not be found in either fixed_hyperparameters.json nor top3_results.pkl")
+            exit(-1)
+
+    # get original hyperparameters
+    try:
+        with open(str_identifier + fixed_hyperparameters_name, "r") as configfile:
+            json_parameters = json.load(configfile)
+    except IOError:
+        print("Could not process the file due to IOError")
+        sys.exit(1)
+    except KeyError:
+        print("A key was not defined")
+        sys.exit(2)
+    for N_total_nodes, plot_configurations in total_nodes_binsize_plot_type_dict.items():
+        subdirectory = "/total_nodes_N_" + str(N_total_nodes) + "/"
+        data_directory = create_data_directory(str_identifier, results_folder="/full_analysis/",
+                                               subdirectory=subdirectory)
+        recreated_scores = np.zeros(number_of_seeds)
+        # We only create a figure and save a connectivity for the first seed,
+        # the other seeds are used to recreate the cross-entropy,
+        # and calculate a standard deviation of the cross-entropy.
+        for seed_number, child_rng in zip(range(number_of_seeds), rng.spawn(number_of_seeds)):
+            graph = convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions,
+                                          N_total_nodes, E_k, phi_U_probability,
+                                          phi_D_probability, child_rng, in_degree_elements, out_degree_elements,
+                                          dimensions,
+                                          delta=delta, noise_factor=noise_factor, spatial=True, pc=pc)
+            # save graph
+            if save_connectivity and seed_number == 0:
+                save_connectivity_graphs(data_directory, graph, N_total_nodes)
+
+            # results from generative convolutional model
+            in_degree_elements_model, out_degree_elements_model = get_degree_elements(connectivity_matrix=graph)
+
+            recreated_scores[seed_number] = elements_linear_cross_entropy(in_degree_elements_model,
+                                                                          out_degree_elements_model,
+                                                                          in_degree_elements,
+                                                                          out_degree_elements, weight)
+            # plot the data for the different configurations for the first seed.
+            if seed_number == 0:
+                for plot_configuration in plot_configurations:
+                    binsize, plot_type = plot_configuration
+                    if plot_type == 'log':
+                        log_type = True
+                    elif plot_type == 'lin':
+                        log_type = False
+                    else:
+                        print("The plot_type:", plot_type, "is not one of the options ('log' or 'lin'); skipping")
+                        break
+                    hist_degree_distributions_name = (
+                        get_names_for_hist_and_cross_vs_total_nodes(log_type, N_total_nodes, binsize=binsize))[0]
+                    str_name_dict["hist_degree_distributions_name"] = hist_degree_distributions_name
+                    plot_and_save_histograms(option, data_directory, str_name_dict, in_degree_elements,
+                                             out_degree_elements,
+                                             in_degree_elements_model, out_degree_elements_model, log_type=log_type,
+                                             binsize=binsize, plot_detailed=False)
+
+        recreated_score = np.average(recreated_scores)
+        std_recreated_score = np.std(recreated_scores, ddof=1)
+
+        print("original score:", result["score"])
+        print("recreated score:", recreated_score)
+        print("std recreated_score:", std_recreated_score)
+        scores = {
+            "original score": result["score"],
+            "recreated score": recreated_score,
+            "score_of_this_seed": recreated_scores[0],
+            "std_recreated_score": std_recreated_score,
+        }
+
+        config = {
+            "m_0_nodes": int(m_0_nodes),
+            "rho_probability": rho_probability,
+            "l_cardinality_partitions": int(l_cardinality_partitions),
+            "E_k": E_k,
+            "phi_U_probability": phi_U_probability,
+            "phi_D_probability": phi_D_probability,
+            "delta": delta,
+            "noise_factor": noise_factor,
+            "dimensions": dimensions,
+            "pc": int(pc),
+        }
+
+        # Also save hyperparameters that were chosen differently
+        for key, value in fixed_hyperparameters.items():
+            original_value = json_parameters[key]
+            if key in {"m_0_nodes", "l_cardinality_partitions", "pc"}:
+                original_value = int(original_value)
+            if original_value != value:
+                config[key] = value
         print(config)
 
         with open(data_directory + "/scores_parameters.json", "w") as scores_file:
@@ -731,6 +985,89 @@ def save_parameters_top_result(data_directory, top3_results, fixed_hyperparamete
 
     with open(data_directory + "/all_optimised_parameters.json", "w") as parameters_file:
         json.dump(fixed_hyperparameters | optimised_parameters, parameters_file)
+        
+        
+def plot_cross_entropy_vs_network_size(result, in_degree_elements, out_degree_elements, fixed_hyperparameters,
+                                       str_name_dict, dim_pc_fixed_parameter, network_sizes,
+                                       save_connectivity=False, log_type=False, fig_and_ax=None, save_plot=True):
+    print("Creating connectivity's using network_sizes.")
+    str_identifier = str_name_dict["str_identifier"]
+
+    optimised_N_total_nodes = fixed_hyperparameters["N_total_nodes"]
+    int_random_generator = fixed_hyperparameters['int_random_generator']
+    weight = fixed_hyperparameters['weight']
+    option = fixed_hyperparameters['option']
+    if "number_of_seeds" in fixed_hyperparameters:
+        number_of_seeds = fixed_hyperparameters['number_of_seeds']
+    else:
+        number_of_seeds = 5
+    print("Number of seeds used: ", number_of_seeds)
+
+    dimensions = fixed_hyperparameters['dimensions']
+    pc = fixed_hyperparameters['pc']
+
+    rng = np.random.default_rng(int_random_generator)
+    m_0_nodes = result["config/m_0"]
+    rho_probability = result["config/rho"]  # not present in web application? (Noise factor?, Delta?)
+    l_cardinality_partitions = result["config/l"]  # Likely L in the web application
+    E_k = result["config/E_k"]  # likely EK in the web application
+    phi_U_probability = result["config/phi_U"]  # likely phi_U in the web application
+    phi_D_probability = result["config/phi_D"]  # likely phi_D in the web application
+    delta = result["config/delta"]
+    noise_factor = result["config/noise_factor"]
+    if not dim_pc_fixed_parameter:
+        if "config/dimensions" in result:
+            dimensions = result["config/dimensions"]
+            pc = result["config/pc"]
+        else:
+            print(
+                "dimensions and pc could not be found in either fixed_hyperparameters.json nor top3_results.pkl")
+            exit(-1)
+
+    data_directory = create_data_directory(str_identifier, "/cross_entropy_network_sizes/")
+    network_sizes_avg_scores = np.zeros(len(network_sizes))
+    network_sizes_std_scores = np.zeros(len(network_sizes))
+    for size_index, N_total_nodes in enumerate(network_sizes):
+        recreated_scores = np.zeros(number_of_seeds)
+        for seed_number, child_rng in zip(range(number_of_seeds), rng.spawn(number_of_seeds)):
+            graph = convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions,
+                                          N_total_nodes, E_k, phi_U_probability,
+                                          phi_D_probability, child_rng, in_degree_elements, out_degree_elements,
+                                          dimensions,
+                                          delta=delta, noise_factor=noise_factor, spatial=True, pc=pc)
+            # save graph
+            if save_connectivity:
+                save_connectivity_graphs(data_directory, graph, seed_number)
+
+            # results from generative convolutional model
+            in_degree_elements_model, out_degree_elements_model = get_degree_elements(connectivity_matrix=graph)
+
+            recreated_scores[seed_number] = elements_linear_cross_entropy(in_degree_elements_model,
+                                                                          out_degree_elements_model,
+                                                                          in_degree_elements,
+                                                                          out_degree_elements, weight)
+        network_sizes_avg_scores[size_index] = np.average(recreated_scores)
+        network_sizes_std_scores[size_index] = np.std(recreated_scores, ddof=1)
+
+    if fig_and_ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig, ax = fig_and_ax
+    ax.errorbar(network_sizes, network_sizes_avg_scores, network_sizes_std_scores, linestyle='None', capsize=3, label=option)
+
+    ax.axvline(x=optimised_N_total_nodes, linestyle='--', color="red", alpha=0.6)
+    ax.set_xlabel("number of nodes")
+    ax.set_ylabel("cross-entropy (bits)")
+    ax.legend()
+    if log_type:
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+    cross_entropy_network_size_name = str_name_dict["cross_entropy_network_size_name"]
+    png_extension = str_name_dict["png_extension"]
+    pdf_extension = str_name_dict["pdf_extension"]
+    if save_plot:
+        fig.savefig(data_directory + cross_entropy_network_size_name + png_extension)
+        fig.savefig(data_directory + cross_entropy_network_size_name + pdf_extension)
 
 
 def get_optimised_parameters(optimised_parameters_location):
@@ -743,17 +1080,28 @@ def get_optimised_parameters(optimised_parameters_location):
     return parameters
 
 
-def optimised_convolutive_graph(rng, parameters, in_degree_elements, out_degree_elements):
-    graph = convolutive_graph_gen(parameters["m_0_nodes"], parameters["rho_probability"],
-                                  parameters["l_cardinality_partitions"], parameters["N_total_nodes"],
-                                  parameters["E_k"], parameters["phi_U_probability"], parameters["phi_D_probability"],
-                                  rng, in_degree_elements, out_degree_elements, parameters["dimensions"],
-                                  delta=parameters["delta"], noise_factor=parameters["noise_factor"], spatial=True,
-                                  pc=parameters["pc"])
-    return graph
+def optimised_convolutive_graph(rng, parameters, in_degree_elements, out_degree_elements, return_positions=False):
+    if return_positions:
+        graph, positions = convolutive_graph_gen(parameters["m_0_nodes"], parameters["rho_probability"],
+                                      parameters["l_cardinality_partitions"], parameters["N_total_nodes"],
+                                      parameters["E_k"], parameters["phi_U_probability"],
+                                      parameters["phi_D_probability"],
+                                      rng, in_degree_elements, out_degree_elements, parameters["dimensions"],
+                                      delta=parameters["delta"], noise_factor=parameters["noise_factor"], spatial=True,
+                                      pc=parameters["pc"], return_positions=return_positions)
+        return graph, positions
+    else:
+        graph = convolutive_graph_gen(parameters["m_0_nodes"], parameters["rho_probability"],
+                                      parameters["l_cardinality_partitions"], parameters["N_total_nodes"],
+                                      parameters["E_k"], parameters["phi_U_probability"],
+                                      parameters["phi_D_probability"],
+                                      rng, in_degree_elements, out_degree_elements, parameters["dimensions"],
+                                      delta=parameters["delta"], noise_factor=parameters["noise_factor"], spatial=True,
+                                      pc=parameters["pc"])
+        return graph
 
 
-def get_optimised_connectivity(option, N_total_nodes=None, relative_path_to_connectivity=None):
+def get_optimised_connectivity(option, N_total_nodes=None, relative_path_to_connectivity=None, int_random_generator=None, return_positions=False):
     neuprint_data_location = 'data_preparation'
     optimised_parameters_location = 'optimised_parameters/' + option
     if relative_path_to_connectivity is not None:
@@ -790,14 +1138,42 @@ def get_optimised_connectivity(option, N_total_nodes=None, relative_path_to_conn
     # could get and change parameters e.g.:
     if N_total_nodes is not None:
         parameters["N_total_nodes"] = N_total_nodes
+    if int_random_generator is not None:
+        parameters["int_random_generator"] = int_random_generator
     # parameters["N_total_nodes"] = 1000
     # parameters["dimensions"] = [2, 0, 2, 0, 2, 0]
 
     # or could get seed used for optimisation:
     rng = np.random.default_rng(parameters["int_random_generator"])
+    if return_positions:
+        graph, positions = optimised_convolutive_graph(rng, parameters, in_degree_elements, out_degree_elements,
+                                                       return_positions=return_positions)
+        return graph, positions
+    else:
+        graph = optimised_convolutive_graph(rng, parameters, in_degree_elements, out_degree_elements)
+        return graph
 
-    graph = optimised_convolutive_graph(rng, parameters, in_degree_elements, out_degree_elements)
-    return graph
+
+def create_and_save_model_csv_degree_elements(option, number_of_seeds, total_nodes=None):
+    base_folder = "data_preparation/degree_elements/" + option + "/"
+    indegree_name = "indegree"
+    outdegree_name = "outdegree"
+    degrees_model_name = "degrees_model_" + str(total_nodes) + "_"
+
+    for seed_number in range(number_of_seeds):
+        # create connectivity
+        graph = get_optimised_connectivity(option, int_random_generator=seed_number, N_total_nodes=total_nodes)
+        # results from generative convolutional model
+        in_degree_elements_model, out_degree_elements_model = get_degree_elements(connectivity_matrix=graph)
+
+        degrees_dataframe = pd.DataFrame({
+            indegree_name: in_degree_elements_model,
+            outdegree_name: out_degree_elements_model
+        })
+
+        filename = f"{degrees_model_name}{seed_number}.csv"
+        degrees_dataframe.to_csv(base_folder + filename, index=False)
+
 
 def get_degree_elements(connectivity_matrix):
     in_degrees, in_degree_counts = np.unique(np.sum(connectivity_matrix, axis=1), return_counts=True)
@@ -808,7 +1184,8 @@ def get_degree_elements(connectivity_matrix):
 
 
 def plot_and_save_histograms(option, data_directory, str_name_dict, in_degree_elements, out_degree_elements,
-                             in_degree_elements_model, out_degree_elements_model, log_type=True, binsize=20):
+                             in_degree_elements_model, out_degree_elements_model, log_type=True, binsize=20,
+                             plot_detailed=True):
     hist_degree_distributions_name = str_name_dict["hist_degree_distributions_name"]
     png_extension = str_name_dict["png_extension"]
     pdf_extension = str_name_dict["pdf_extension"]
@@ -821,11 +1198,11 @@ def plot_and_save_histograms(option, data_directory, str_name_dict, in_degree_el
                                                            out_degree_elements_matlab_sim, log_type=log_type, binsize=binsize)
     figure.savefig(data_directory + hist_degree_distributions_name + png_extension)
     figure.savefig(data_directory + hist_degree_distributions_name + pdf_extension)
+    if plot_detailed:
+        figure.set_size_inches(20, 11.25)
 
-    figure.set_size_inches(20, 11.25)
-
-    figure.savefig(data_directory + hist_degree_distributions_name + detailed_name + png_extension)
-    figure.savefig(data_directory + hist_degree_distributions_name + detailed_name + pdf_extension)
+        figure.savefig(data_directory + hist_degree_distributions_name + detailed_name + png_extension)
+        figure.savefig(data_directory + hist_degree_distributions_name + detailed_name + pdf_extension)
 
 
 def score_and_plot(connectivity_matrix, name_type, in_degree_elements, out_degree_elements, option, weight, log_type=True, type_values=None):

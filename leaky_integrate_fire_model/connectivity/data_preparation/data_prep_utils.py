@@ -11,6 +11,7 @@ from leaky_integrate_fire_model.connectivity.connectivity_utils import *
 import matplotlib.pyplot as plt
 import scipy.io
 import os
+import pandas as pd
 
 
 def data_downloaded(option, data_location=None):
@@ -61,13 +62,13 @@ def extract_neuprint_data(option, token, data_location=None):
     bodyIds_pre, indices_pre, outdegrees = np.unique(total_conn_df.bodyId_pre, return_index=True, return_counts=True)
     bodyIds_post, indices_post, indegrees = np.unique(total_conn_df.bodyId_post, return_index=True, return_counts=True)
 
-    print("indegrees:", indegrees, len(indegrees), sum(indegrees))
-    print("outdegrees:", outdegrees, len(outdegrees), sum(outdegrees))
+    print("indegrees:", np.sort(indegrees), len(indegrees), sum(indegrees))
+    print("outdegrees:", np.sort(outdegrees), len(outdegrees), sum(outdegrees))
 
     graph = get_connectivity_graph_from_pre_post_ids(total_conn_df.bodyId_pre, total_conn_df.bodyId_post)
     indegrees_graph, outdegrees_graph = get_degree_elements(graph)
-    print("indegrees graph:", indegrees_graph, len(indegrees_graph), sum(indegrees_graph))
-    print("outdegrees graph:", outdegrees_graph, len(outdegrees_graph), sum(outdegrees_graph))
+    print("indegrees graph:", np.sort(indegrees_graph), len(indegrees_graph), sum(indegrees_graph))
+    print("outdegrees graph:", np.sort(outdegrees_graph), len(outdegrees_graph), sum(outdegrees_graph))
 
     if data_location is not None:
         data_directory = data_location + "/"
@@ -75,16 +76,16 @@ def extract_neuprint_data(option, token, data_location=None):
         data_directory = ""
     if option == "manc":
         with open(data_directory + 'manc_v1.0_indegrees.npy', 'wb') as indegree_file:
-            np.save(indegree_file, indegrees)
+            np.save(indegree_file, indegrees_graph)
 
         with open(data_directory + 'manc_v1.0_outdegrees.npy', 'wb') as outdegree_file:
-            np.save(outdegree_file, outdegrees)
+            np.save(outdegree_file, outdegrees_graph)
     elif option == "hemibrain":
         with open(data_directory + 'hemibrain_v1.2.1_indegrees.npy', 'wb') as indegree_file:
-            np.save(indegree_file, indegrees)
+            np.save(indegree_file, indegrees_graph)
 
         with open(data_directory + 'hemibrain_v1.2.1_outdegrees.npy', 'wb') as outdegree_file:
-            np.save(outdegree_file, outdegrees)
+            np.save(outdegree_file, outdegrees_graph)
     else:
         print("The chosen option", option, "is not one of the possible options.")
         exit(1)
@@ -121,6 +122,20 @@ def to_txt_distributions(in_degree_elements, out_degree_elements):
             out_degree_file.write(str(out_degree_count) + "," + str(out_degree_prob))
             out_degree_file.write("\n")
     plt.show()
+
+
+def to_csv_degree_elements(in_degree_elements, out_degree_elements, option):
+
+    indegree_name = "indegree"
+    outdegree_name = "outdegree"
+
+    experimental_degree_data_filename = "data_preparation/degree_elements/degrees_experimental_" + str(option) + ".csv"
+    if not os.path.isfile(experimental_degree_data_filename):
+        degrees_experimental_dataframe = pd.DataFrame({
+            indegree_name: in_degree_elements,
+            outdegree_name: out_degree_elements
+        })
+        degrees_experimental_dataframe.to_csv(experimental_degree_data_filename, index=False)
     
 
 def get_csv_degree_elements(in_degree_file_name, out_degree_file_name):
@@ -166,10 +181,10 @@ def get_degrees_from_root_ids_csv_file(filename, saved_filename, data_location=N
         data_directory = ""
 
     with open(data_directory + saved_filename + '_indegrees.npy', 'wb') as indegree_file:
-        np.save(indegree_file, indegrees)
+        np.save(indegree_file, indegrees_graph)
 
     with open(data_directory + saved_filename + '_outdegrees.npy', 'wb') as outdegree_file:
-        np.save(outdegree_file, outdegrees)
+        np.save(outdegree_file, outdegrees_graph)
 
     return graph
 

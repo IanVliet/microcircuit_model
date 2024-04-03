@@ -11,7 +11,10 @@ from matplotlib.ticker import PercentFormatter
 import time
 import json
 
-str_identifier = "saved_data_brunel_network/30"
+str_identifier = "saved_data_brunel_network/43"
+# left_lim, right_lim = 500, 600
+left_lim, right_lim = 1000, 1200
+
 str_identifier_figures = str_identifier + "/figures"
 if not os.path.exists(str_identifier_figures):
     os.makedirs(str_identifier_figures)
@@ -24,10 +27,11 @@ binomial_external_spikes_name = "/binomial_external_spikes.npy"
 config_name = "/config.json"
 parameter_filename = str_identifier + config_name
 
-int_for_random_generator, number_of_cells, ratio_excitatory_cells, gamma_ratio_connections, \
-        epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay, \
-        J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step, \
-        save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells = get_brunel_parameters(parameter_filename)
+(int_for_random_generator, number_of_cells, ratio_excitatory_cells, gamma_ratio_connections,
+ epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay,
+ J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step,
+ save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells,
+ convolutive_connectivity) = get_brunel_parameters(parameter_filename)
 
 number_of_time_steps = round(simulation_time/time_step)
 rng = np.random.default_rng(int_for_random_generator)
@@ -37,7 +41,6 @@ number_excitatory_cells = round(ratio_excitatory_cells * number_of_cells)
 C_random_excitatory_connections = round(number_excitatory_cells * epsilon_connection_probability)
 png_extension = ".png"
 pdf_extension = ".pdf"
-left_lim, right_lim = 1000, 1200
 
 if os.path.exists(str_identifier + spikes_name):
     with open(str_identifier + spikes_name, 'rb') as spikes_file:
@@ -78,23 +81,27 @@ if os.path.exists(str_identifier + spikes_name):
     # get frequency spectrum of total_spikes
     avg_firing_rate = np.sum(total_spikes)*1e3/simulation_time/number_of_cells
     print("Average firing rate: " + str(avg_firing_rate) + " Hz")
-    avg_firing_rate_dict = {"avg_firing_rate": avg_firing_rate}
-    with open(str_identifier + "/avg_firing_rate.json", "w") as avg_firing_rate_file:
-        json.dump(avg_firing_rate_dict, avg_firing_rate_file)
+
     plot_freq_spectrum_name = "/freq_spectrum"
     fig_freq_spectrum, ax_freq_spectrum = plt.subplots()
     total_spikes_fft = np.fft.fft(total_spikes)
     total_spikes_power_spec = np.abs(total_spikes_fft)**2
     frequencies = np.fft.fftfreq(time_array.shape[-1], d=time_step)
-    print(frequencies[1:len(total_spikes_power_spec)//2][np.argmax(total_spikes_power_spec[1:len(total_spikes_power_spec)//2])])
-    ax_freq_spectrum.plot(frequencies, total_spikes_fft.real, label='real')
-    ax_freq_spectrum.plot(frequencies, total_spikes_fft.imag, label='imag')
-    ax_freq_spectrum.plot(frequencies, total_spikes_power_spec, label='power')
+    global_oscillation_freq = frequencies[1:len(total_spikes_power_spec)//2][np.argmax(total_spikes_power_spec[1:len(total_spikes_power_spec)//2])]
+    print("global oscillation frequency:", global_oscillation_freq)
+    ax_freq_spectrum.plot(frequencies[1:len(total_spikes_power_spec)//2], total_spikes_fft[1:len(total_spikes_power_spec)//2].real, label='real')
+    ax_freq_spectrum.plot(frequencies[1:len(total_spikes_power_spec)//2], total_spikes_fft[1:len(total_spikes_power_spec)//2].imag, label='imag')
+    ax_freq_spectrum.plot(frequencies[1:len(total_spikes_power_spec)//2], total_spikes_power_spec[1:len(total_spikes_power_spec)//2], label='power')
     ax_freq_spectrum.set_xlabel('frequency (kHz)')
     ax_freq_spectrum.set_ylabel(r'Power')
     ax_freq_spectrum.legend()
     fig_freq_spectrum.savefig(str_identifier_figures + plot_freq_spectrum_name + png_extension)
     fig_freq_spectrum.savefig(str_identifier_figures + plot_freq_spectrum_name + pdf_extension)
+
+    firing_statistics_dict = {"avg_firing_rate": avg_firing_rate,
+                              "global_oscillation_frequency": global_oscillation_freq}
+    with open(str_identifier + "/firing_statistics.json", "w") as firing_statistics_file:
+        json.dump(firing_statistics_dict, firing_statistics_file)
 
 if os.path.exists(str_identifier + voltage_traces_name):
     with open(str_identifier + voltage_traces_name, 'rb') as voltage_traces_file:

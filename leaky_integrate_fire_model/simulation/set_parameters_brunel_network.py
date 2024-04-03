@@ -6,7 +6,9 @@ int_for_random_generator = 4
 number_of_cells = 12500
 ratio_excitatory_cells = 0.8
 gamma_ratio_connections = 0.25
-epsilon_connection_probability = 0.1  # C_random_excitatory_connections/number_excitatory_cells
+epsilon_connection_probability = 0.012449482358588688  # C_random_excitatory_connections/number_excitatory_cells
+
+convolutive_connectivity = False
 
 # cell properties https://link.springer.com/article/10.1023/A:1008925309027
 EL = 0  # mV
@@ -19,12 +21,14 @@ refractory_period = 2.0  # ms
 transmission_delay = 1.5  # ms
 
 # synaptic properties, and external frequency
-J_PSP_amplitude_excitatory = 0.1  # mV (PSP is postsynaptic potential amplitude)
+# J_PSP_amplitude_excitatory = 0.1  # mV (PSP is postsynaptic potential amplitude)
+J_PSP_amplitude_excitatory = 0.8032462484756381  # mV (PSP is postsynaptic potential amplitude)
 ratio_external_freq_to_threshold_freq = 0.9
 g_inh = 4.5  # unitless (so not conductances here) (relative strength of inhibitory connections)
 
 # simulation properties
 simulation_time = 1200  # ms
+# simulation_time = 10000  # ms
 time_step = 0.1  # ms
 
 save_voltage_data_every_ms = 1  # ms  (the time between datapoints for the voltage data)
@@ -38,6 +42,8 @@ parameters_dict = {
     'ratio_excitatory_cells': ratio_excitatory_cells,
     'gamma_ratio_connections': gamma_ratio_connections,
     'epsilon_connection_probability': epsilon_connection_probability,
+
+    'convolutive_connectivity': convolutive_connectivity,
 
     # cell properties https://link.springer.com/article/10.1023/A:1008925309027
     'EL': EL,

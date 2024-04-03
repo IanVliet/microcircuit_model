@@ -107,6 +107,10 @@ def get_brunel_parameters(parameter_filename):
         ratio_excitatory_cells = json_parameters['ratio_excitatory_cells']
         gamma_ratio_connections = json_parameters['gamma_ratio_connections']
         epsilon_connection_probability = json_parameters['epsilon_connection_probability']
+        if 'convolutive_connectivity' in json_parameters:
+            convolutive_connectivity = json_parameters['convolutive_connectivity']
+        else:
+            convolutive_connectivity = False
         # epsilon_connection_probability = C_random_excitatory_connections/number_excitatory_cells
 
         # cell properties https://link.springer.com/article/10.1023/A:1008925309027
@@ -142,10 +146,11 @@ def get_brunel_parameters(parameter_filename):
     except KeyError:
         print("A key was not defined")
         sys.exit(2)
-    return int_for_random_generator, number_of_cells, ratio_excitatory_cells, gamma_ratio_connections, \
-        epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay, \
-        J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step, \
-        save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells
+    return (int_for_random_generator, number_of_cells, ratio_excitatory_cells, gamma_ratio_connections,
+            epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay,
+            J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step,
+            save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells,
+            convolutive_connectivity)
 
 
 def align_arrays(arrays):
