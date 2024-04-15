@@ -7,7 +7,7 @@ from neuprint import fetch_neurons, fetch_adjacencies, connection_table_to_matri
 from neuprint import fetch_traced_adjacencies
 from neuprint import merge_neuron_properties
 import dask.dataframe as dd
-from leaky_integrate_fire_model.connectivity.connectivity_utils import *
+from microcircuit_model.connectivity.connectivity_utils import *
 import matplotlib.pyplot as plt
 import scipy.io
 import os

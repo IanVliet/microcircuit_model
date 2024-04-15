@@ -13,7 +13,7 @@ from scipy.stats import binom
 import os
 import json
 import sys
-from leaky_integrate_fire_model.connectivity.data_preparation.data_prep_utils import *
+from microcircuit_model.connectivity.data_preparation.data_prep_utils import *
 
 
 def get_degree_data(option, data_location='data_preparation'):
@@ -1205,7 +1205,7 @@ def plot_and_save_histograms(option, data_directory, str_name_dict, in_degree_el
         figure.savefig(data_directory + hist_degree_distributions_name + detailed_name + pdf_extension)
 
 
-def score_and_plot(connectivity_matrix, name_type, in_degree_elements, out_degree_elements, option, weight, log_type=True, type_values=None):
+def score_and_plot(connectivity_matrix, name_type, in_degree_elements, out_degree_elements, option, weight, log_type=True, type_values=None, binsize=20):
     in_degree_elements_matlab_sim = out_degree_elements_matlab_sim = [0]
     if isinstance(connectivity_matrix, np.ndarray):
         in_degree_elements_model, out_degree_elements_model = get_degree_elements(connectivity_matrix)
@@ -1213,7 +1213,7 @@ def score_and_plot(connectivity_matrix, name_type, in_degree_elements, out_degre
                                                                in_degree_elements_matlab_sim, out_degree_elements,
                                                                out_degree_elements_model,
                                                                out_degree_elements_matlab_sim, log_type=log_type,
-                                                               model_data_label=name_type)
+                                                               model_data_label=name_type, binsize=binsize)
 
         score = elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model, in_degree_elements,
                                               out_degree_elements, weight)
@@ -1225,8 +1225,8 @@ def score_and_plot(connectivity_matrix, name_type, in_degree_elements, out_degre
             in_degree_elements_model, out_degree_elements_model = get_degree_elements(matrix)
             figure, ax = hist_plot_data_model_degree_distributions(
                 option, in_degree_elements, in_degree_elements_model, in_degree_elements_matlab_sim,
-                out_degree_elements,
-                out_degree_elements_model, out_degree_elements_matlab_sim, log_type=log_type, model_data_label=name_type
+                out_degree_elements, out_degree_elements_model, out_degree_elements_matlab_sim,
+                log_type=log_type, model_data_label=name_type, binsize=binsize
             )
 
             score = elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model,
@@ -1240,8 +1240,8 @@ def score_and_plot(connectivity_matrix, name_type, in_degree_elements, out_degre
                 in_degree_elements_model, out_degree_elements_model = get_degree_elements(connectivity_matrix[0])
                 figure, ax = hist_plot_data_model_degree_distributions(
                     option, in_degree_elements, in_degree_elements_model, in_degree_elements_matlab_sim,
-                    out_degree_elements,
-                    out_degree_elements_model, out_degree_elements_matlab_sim, log_type=log_type, model_data_label=zeroth_label
+                    out_degree_elements, out_degree_elements_model, out_degree_elements_matlab_sim,
+                    log_type=log_type, model_data_label=zeroth_label, binsize=binsize
                 )
                 score = elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model,
                                                       in_degree_elements,
@@ -1252,7 +1252,7 @@ def score_and_plot(connectivity_matrix, name_type, in_degree_elements, out_degre
                     type_label = name_type + ": " + str(type_values[label])
                     in_degree_elements_model, out_degree_elements_model = get_degree_elements(matrix)
                     hist_additive_plot_degree_distributions(
-                        in_degree_elements_model, out_degree_elements_model, figure, ax, type_label, log_type=log_type
+                        in_degree_elements_model, out_degree_elements_model, figure, ax, type_label, log_type=log_type, binsize=binsize
                     )
 
                     score = elements_linear_cross_entropy(in_degree_elements_model, out_degree_elements_model, in_degree_elements,
@@ -1296,7 +1296,6 @@ def hist_plot_data_model_degree_distributions(option, in_degree_elements, in_deg
                                               out_degree_elements_model, out_degree_elements_matlab_sim, log_type=False, model_data_label='sim', binsize=20):
     fig, ax = plt.subplots(1, 2)
 
-    binsize = binsize
     bin_edges_indegree = get_bin_edges([in_degree_elements, in_degree_elements_model, in_degree_elements_matlab_sim], binsize=binsize)
     bin_edges_outdegree = get_bin_edges([out_degree_elements, out_degree_elements_model, out_degree_elements_matlab_sim], binsize=binsize)
     density_type = True
@@ -1332,8 +1331,7 @@ def hist_plot_data_model_degree_distributions(option, in_degree_elements, in_deg
     return fig, ax
 
 
-def hist_additive_plot_degree_distributions(in_degree_elements_model, out_degree_elements_model, fig, ax, label, log_type=False):
-    binsize = 20
+def hist_additive_plot_degree_distributions(in_degree_elements_model, out_degree_elements_model, fig, ax, label, log_type=False, binsize=20):
     bin_edges_indegree = get_bin_edges([in_degree_elements_model], binsize=binsize)
     bin_edges_outdegree = get_bin_edges([out_degree_elements_model], binsize=binsize)
     density_type = True

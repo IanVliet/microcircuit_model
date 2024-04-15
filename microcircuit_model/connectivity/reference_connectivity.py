@@ -15,12 +15,16 @@ import sys
 import networkx as nx
 
 # option = "manc"
-option = "hemibrain"
-N_total_nodes = 12500
+# option = "hemibrain"
+option = "pyc-pyc"
+N_total_nodes = 82
 weight = 0.5
-epsilon_connection_probabilities = [0.01, 0.012449482358588688, 0.05, 0.1]
-m_values = [50, 100, 150, 200]
+epsilon_connection_probabilities = [0.01, 0.05, 0.1]
+# m_values = [50, 100, 150, 200]
+m_values = [4, 7, 9]
 int_for_random_generator = 1
+log_type = False
+binsize = 1
 
 folder_name = "saved_data_reference_connectivity/"
 
@@ -77,7 +81,7 @@ scores_dict = {}
 
 for label, connectivity_matrix in type_matrix_dict.items():
     type_values = type_values_dict.get(label)
-    figure, scores = score_and_plot(connectivity_matrix, label, in_degree_elements, out_degree_elements, option, weight, log_type=True, type_values=type_values)
+    figure, scores = score_and_plot(connectivity_matrix, label, in_degree_elements, out_degree_elements, option, weight, log_type=log_type, type_values=type_values, binsize=binsize)
     graph_type = label.replace(" ", "_")
     save_png_pdf(figure, str_identifier, "/hist_degree_distributions_" + graph_type)
     if isinstance(connectivity_matrix, np.ndarray):

@@ -11,7 +11,7 @@ from matplotlib.ticker import PercentFormatter
 import time
 import json
 
-str_identifier = "saved_data_brunel_network/43"
+str_identifier = "saved_data_brunel_network/83"
 # left_lim, right_lim = 500, 600
 left_lim, right_lim = 1000, 1200
 
@@ -31,7 +31,7 @@ parameter_filename = str_identifier + config_name
  epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay,
  J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step,
  save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells,
- convolutive_connectivity) = get_brunel_parameters(parameter_filename)
+ convolutive_connectivity, json_parameters) = get_brunel_parameters(parameter_filename)
 
 number_of_time_steps = round(simulation_time/time_step)
 rng = np.random.default_rng(int_for_random_generator)

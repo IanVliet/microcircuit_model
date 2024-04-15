@@ -11,7 +11,7 @@ from matplotlib.ticker import PercentFormatter
 import time
 import json
 
-folders = range(13, 33, 4)
+folders = range(67, 84, 4)
 left_lim, right_lim = 500, 600
 
 main_folder = "saved_data_brunel_network/"
@@ -24,8 +24,14 @@ total_spikes_arrays = []
 time_arrays = []  # it will be the latest time array acquired from the for loop
 
 for index, folder in enumerate(folders):
-    with open(main_folder + str(folder) + "/avg_firing_rate.json", "r") as avg_firing_rate_file:
-        avg_firing_rate_dict = json.load(avg_firing_rate_file)
+    # newer version where both average firing rate and global oscillation frequency were saved
+    if os.path.isfile(main_folder + str(folder) + "/firing_statistics.json"):
+        with open(main_folder + str(folder) + "/firing_statistics.json", "r") as firing_statistics_file:
+            avg_firing_rate_dict = json.load(firing_statistics_file)
+    # old version where only average firing rate was saved
+    elif os.path.isfile(main_folder + str(folder) + "/avg_firing_rate.json"):
+        with open(main_folder + str(folder) + "/avg_firing_rate.json", "r") as avg_firing_rate_file:
+            avg_firing_rate_dict = json.load(avg_firing_rate_file)
 
     firing_rates[index] = avg_firing_rate_dict["avg_firing_rate"]
 
@@ -33,7 +39,7 @@ for index, folder in enumerate(folders):
      epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay,
      J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step,
      save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells,
-     convolutive_connectivity) = get_brunel_parameters(main_folder + str(folder) + config_name)
+     convolutive_connectivity, json_parameters) = get_brunel_parameters(main_folder + str(folder) + config_name)
 
     number_of_time_steps = round(simulation_time / time_step)
     rng = np.random.default_rng(int_for_random_generator)

@@ -17,17 +17,17 @@ import json
 
 
 fixed_hyperparameters = {
-    "N_total_nodes": 10000,
+    "N_total_nodes": 23000,
     "int_random_generator": 1,
     "weight": 0.5,
     "dimensions": [1, 0, 1, 0, 1, 0],
     "pc": 300,
-    # "option": "manc",
+    "option": "manc",
     # "option": "hemibrain",
     # "option": "pyc-pyc",
-    "option": "cortical_microns",
+    # "option": "cortical_microns",
     "number_of_seeds": 10,
-    "m_0": 1,
+    # "m_0": 1,
     # "subset": 0.5
 }
 
@@ -58,16 +58,17 @@ l_cardinality_partitions_choice = find_small_divisors(round(fixed_hyperparameter
 # dimensions = [[1, 0, 1, 0, 1, 0]]
 # pc = [300]
 
-max_m_0 = fixed_hyperparameters["m_0"]
-# max_m_0 = round(fixed_hyperparameters["N_total_nodes"]/(2*10))
+# max_m_0 = fixed_hyperparameters["m_0"]
+max_m_0 = round(fixed_hyperparameters["N_total_nodes"]/(2*10))
 # max_m_0 = round(fixed_hyperparameters["N_total_nodes"]/2)
 max_E_k = round(fixed_hyperparameters["N_total_nodes"]/(2*10))  # 100 # 500
-max_phi_D = max_E_k/(round(fixed_hyperparameters["N_total_nodes"]/2))
+# max_phi_D = max_E_k/(round(fixed_hyperparameters["N_total_nodes"]/2))
+max_phi_D = 0.1
 # web application: https://gtalg.ebrains-italy.eu/connect/  (certificate expired)
 
 search_space = {
-    "m_0": tune.choice([max_m_0]),
-    # "m_0": tune.randint(1, max_m_0),
+    # "m_0": tune.choice([max_m_0]),
+    "m_0": tune.randint(1, max_m_0),
     # "rho": tune.grid_search(rho_probability_choice),
     # "rho": tune.choice(rho_probability_choice),
     "rho": tune.uniform(0, 1),

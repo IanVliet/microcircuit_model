@@ -127,8 +127,7 @@ def get_brunel_parameters(parameter_filename):
         J_PSP_amplitude_excitatory = json_parameters[
             'J_PSP_amplitude_excitatory']  # mV (PSP is postsynaptic potential amplitude)
         ratio_external_freq_to_threshold_freq = json_parameters['ratio_external_freq_to_threshold_freq']
-        g_inh = json_parameters[
-            'g_inh']  # unitless (so not conductances here) (relative strength of inhibitory connections)
+        g_inh = json_parameters['g_inh']  # unitless (relative strength of inhibitory connections)
 
         # simulation properties
         simulation_time = json_parameters['simulation_time']  # ms
@@ -150,7 +149,7 @@ def get_brunel_parameters(parameter_filename):
             epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay,
             J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step,
             save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells,
-            convolutive_connectivity)
+            convolutive_connectivity, json_parameters)
 
 
 def align_arrays(arrays):

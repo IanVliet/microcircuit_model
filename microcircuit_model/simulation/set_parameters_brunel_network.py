@@ -1,6 +1,6 @@
 import json
 
-int_for_random_generator = 4
+int_for_random_generator = 1
 
 # network properties
 number_of_cells = 12500

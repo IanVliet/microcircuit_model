@@ -8,7 +8,7 @@ import numpy as np
 from math import ceil
 from matplotlib.ticker import PercentFormatter
 from simulation_utils import *
-from leaky_integrate_fire_model.connectivity.connectivity_utils import *
+from microcircuit_model.connectivity.connectivity_utils import *
 import time
 import json
 
@@ -22,7 +22,24 @@ parameter_filename = "config.json"
  epsilon_connection_probability, EL, V_reset, Rm, tau_E, tau_I, V_th, refractory_period, transmission_delay,
  J_PSP_amplitude_excitatory, ratio_external_freq_to_threshold_freq, g_inh, simulation_time, time_step,
  save_voltage_data_every_ms, number_of_progression_updates, number_of_scatter_plot_cells,
- convolutive_connectivity) = get_brunel_parameters(parameter_filename)
+ convolutive_connectivity, json_parameters) = get_brunel_parameters(parameter_filename)
+
+system_arguments = sys.argv
+g_inh_argument_name = "g_inh"
+ratio_freq_argument_name = "ratio_freq"
+rng_int_argument_name = "rng_int"
+if g_inh_argument_name in system_arguments:
+    g_inh_argument_index = system_arguments.index(g_inh_argument_name)
+    g_inh = float(system_arguments[g_inh_argument_index + 1])
+    json_parameters['g_inh'] = g_inh
+if ratio_freq_argument_name in system_arguments:
+    ratio_freq_argument_index = system_arguments.index(ratio_freq_argument_name)
+    ratio_external_freq_to_threshold_freq = float(system_arguments[ratio_freq_argument_index + 1])
+    json_parameters['ratio_external_freq_to_threshold_freq'] = ratio_external_freq_to_threshold_freq
+if rng_int_argument_name in system_arguments:
+    rng_int_argument_index = system_arguments.index(rng_int_argument_name)
+    int_for_random_generator = int(system_arguments[rng_int_argument_index + 1])
+    json_parameters['int_for_random_generator'] = int_for_random_generator
 
 # neuprint documentation: https://connectome-neuprint.github.io/neuprint-python/docs/notebooks/QueryTutorial.html
 # option = "manc"  # manc --> "https://www.janelia.org/project-team/flyem/manc-connectome"
@@ -41,7 +58,8 @@ while os.path.exists("saved_data_brunel_network/" + str(folder_identifier)):
 str_identifier = "saved_data_brunel_network/" + str(folder_identifier)
 os.makedirs(str_identifier)
 
-shutil.copy(parameter_filename, str_identifier + "/config.json")
+with open(str_identifier + "/config.json", 'w') as new_config_file:
+    json.dump(json_parameters, new_config_file)
 
 end_folders_save_parameters = time.time()
 print("create folder and save parameters: "+str(end_folders_save_parameters-end_parameters)+" s")
