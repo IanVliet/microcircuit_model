@@ -6,6 +6,13 @@ from neuprint import fetch_traced_adjacencies
 from neuprint import merge_neuron_properties
 from data_prep_utils import *
 
+"""
+neuPrint: An open access tool for EM connectomics.
+Plaza SM, Clements J, Dolafi T, Umayam L, Neubarth NN, Scheffer LK and Berg S
+Front. Neuroinform. 16:896292. doi: 10.3389/fninf.2022.896292 (https://doi.org/10.1101/2020.01.16.909465)
+This work is licensed under a Creative Commons Attribution 4.0 International License
+(http://creativecommons.org/licenses/by/4.0/).
+"""
 # neuprint documentation: https://connectome-neuprint.github.io/neuprint-python/docs/notebooks/QueryTutorial.html
 # option = "manc"  # manc --> "https://www.janelia.org/project-team/flyem/manc-connectome"
 # option = "hemibrain"  # hemibrain --> "https://www.janelia.org/project-team/flyem/hemibrain"

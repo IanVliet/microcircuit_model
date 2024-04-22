@@ -44,6 +44,12 @@ def extract_neuprint_data(option, token, data_location=None):
     neuprint documentation: https://connectome-neuprint.github.io/neuprint-python/docs/notebooks/QueryTutorial.html
     manc --> "https://www.janelia.org/project-team/flyem/manc-connectome"
     hemibrain --> "https://www.janelia.org/project-team/flyem/hemibrain"
+
+    neuPrint: An open access tool for EM connectomics.
+    Plaza SM, Clements J, Dolafi T, Umayam L, Neubarth NN, Scheffer LK and Berg S
+    Front. Neuroinform. 16:896292. doi: 10.3389/fninf.2022.896292 (https://doi.org/10.1101/2020.01.16.909465)
+    This work is licensed under a Creative Commons Attribution 4.0 International License
+    (http://creativecommons.org/licenses/by/4.0/).
     """
     if option == "manc":
         client = Client('neuprint.janelia.org', dataset='manc:v1.0', token=token)
@@ -189,6 +195,8 @@ def get_degrees_from_root_ids_csv_file(filename, saved_filename, data_location=N
     return graph
 
 
+# Unused in the thesis. Only used for the extensive cortical MICrONS dataset
+# (https://www.microns-explorer.org/cortical-mm3).
 def get_degrees_from_root_ids_parquet_file(file_directory, saved_filename, data_location=None):
     # get the dataframe from the parquet file
     synapse_graph = dd.read_parquet(file_directory)
@@ -272,7 +280,7 @@ def get_connectivity_graph_from_pre_post_ids(pre_root_ids, post_root_ids):
 def save_large_synapse_graph_csv_as_parquet_files():
     # If you have not yet downloaded the synapse graph it should be directly downloadable through the following link
     # https://s3.amazonaws.com/bossdb-open-data/iarpa_microns/minnie/minnie65/synapse_graph/synapses_pni_2.csv
-    # It should also be possible to directly load it into python, although the server might disconnect (for reasons unknown)
+    # It should also be possible to directly load it into python, although the server might disconnect (for reasons unknown to me)
     # e.g. use synapse_graph = dd.read_csv("https://s3.amazonaws.com/bossdb-open-data/iarpa_microns/minnie/minnie65/synapse_graph/synapses_pni_2.csv")
     synapse_graph = dd.read_csv("../../../degree_data/synapses_pni_2.csv")
     synapse_graph.columns = ['id', 'valid', 'pre_pt_position_x', 'pre_pt_position_y', 'pre_pt_position_z',

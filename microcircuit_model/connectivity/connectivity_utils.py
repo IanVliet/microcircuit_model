@@ -121,7 +121,7 @@ def get_filled_degree_distributions(in_degree_values, in_degree_distribution, ou
     return total_in_degree_distribution, total_out_degree_distribution
 
 
-# generates BARABÁSI AND ALBERT (BA) graph from code in MATLAB shared in "Graph-theoretical derivation of brain
+# generates BARABÁSI AND ALBERT (BA) graph based on the code in MATLAB shared in "Graph-theoretical derivation of brain
 # structural connectivity": (https://doi.org/10.1016/j.amc.2020.125150)
 def ba_graph(sigma, a_arbitrary_constant, m_0_nodes, rho_probability, rng, total_nodes):
     er_graph = constant_probability_random_connectivity_matrix(m_0_nodes, rho_probability, rng)
@@ -384,7 +384,7 @@ def convolutive_graph_gen(m_0_nodes, rho_probability, l_cardinality_partitions, 
     end_exponential_model = time.time()
     print("Exponential model generation: " + str(end_exponential_model - end_partition_generation))
     if return_positions:
-        return B, np.concatenate((positions_A_1, positions_A_2))
+        return B, np.concatenate((positions_A_1, positions_A_2), axis=1)
     else:
         return B
 
@@ -434,32 +434,6 @@ def simple_ba_graph(total_nodes, m_0_nodes, m, rng, a_arbitrary_constant=1000):
                 connection_counter += 1
         node_counter += 1
     return total_graph
-
-
-# NEEDS TO BE FIXED STILL!!! --> seems impossible to calculate
-def convolutive_probabilities(in_degree_distribution, out_degree_distribution, N_total_nodes,
-                              l_cardinality_partitions, p_probability, phi_U_probability, phi_D_probability):
-    M = round(N_total_nodes/l_cardinality_partitions)
-    print(M)
-    in_degree_model = []
-    out_degree_model = []
-    delta_0_distribution = np.zeros(N_total_nodes)
-    delta_0_distribution[0] = 1
-    range_to_N = np.arange(N_total_nodes, dtype=float)
-    # NEEDS TO BE FIXED STILL
-    binomial_phi_U_distribution = binom.pmf(range_to_N, l_cardinality_partitions, phi_U_probability)
-    binomial_phi_D_distribution = binom.pmf(range_to_N, l_cardinality_partitions, phi_D_probability)
-    print(comb(l_cardinality_partitions, range_to_N))
-    print(binomial_phi_U_distribution)
-    print(binomial_phi_D_distribution)
-    for k in range(1, N_total_nodes+1):
-        left_part = (1-p_probability)*delta_0_distribution[:k] + p_probability*binomial_phi_U_distribution[:k]
-        right_part = p_probability*delta_0_distribution[:k] + (1-p_probability)*binomial_phi_D_distribution[:k]
-        first_convolution = np.convolve(left_part, right_part)
-        power_convolutions = convolve_power(first_convolution, M)
-        in_degree_model.append(np.convolve(in_degree_distribution[:k], power_convolutions))
-        out_degree_model.append(np.convolve(out_degree_distribution[:k], power_convolutions))
-    return in_degree_model, out_degree_model
 
 
 def convolve_power(array, power):
